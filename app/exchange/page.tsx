@@ -13,10 +13,10 @@ export default async function ExchangePage() {
   
   // Fetch exchange items
   const { data: items } = await supabase
-    .from('exchange_items')
+    .from('items')
     .select(`
       *,
-      seller:profiles!exchange_items_seller_id_fkey(name),
+      seller:profiles!items_seller_id_fkey(name),
       zone:zones(zone_name)
     `)
     .order('created_at', { ascending: false });

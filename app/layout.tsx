@@ -3,7 +3,7 @@ import { usePathname } from 'next/navigation';
 import './globals.css';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
-import { ToastProvider } from '@/components/Toast';
+import { Toaster } from 'sonner';
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -25,11 +25,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body className={isHomePage ? 'landing-page' : ''}>
-        <ToastProvider>
-          <Navbar />
-          <main style={{ flex: 1 }}>{children}</main>
-          <Footer />
-        </ToastProvider>
+        <Toaster position="bottom-right" richColors />
+        <Navbar />
+        <main style={{ flex: 1 }}>{children}</main>
+        <Footer />
       </body>
     </html>
   );

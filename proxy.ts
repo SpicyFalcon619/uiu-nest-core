@@ -8,7 +8,7 @@ const ADMIN_ROUTES = ['/admin'];
 // Routes that redirect to /dashboard when already logged in
 const AUTH_ROUTES = ['/login', '/register'];
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(

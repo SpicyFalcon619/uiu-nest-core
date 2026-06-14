@@ -384,7 +384,159 @@ INSERT INTO zones (zone_name, description, center_lat, center_lng, radius_km) VA
 -- with the email/password you chose.
 -- Then run this UPDATE to set the role to 'admin':
 --
---   UPDATE profiles SET role = 'admin', name = 'Master Admin'
---   WHERE email = 'YOUR_ADMIN_EMAIL';
---
 -- ============================================================
+-- 20. Database Indexes for Performance
+-- ============================================================
+CREATE INDEX idx_profiles_role ON profiles(role);
+CREATE INDEX idx_listings_user_id ON listings(user_id);
+CREATE INDEX idx_listings_zone_id ON listings(zone_id);
+CREATE INDEX idx_listings_status ON listings(status);
+CREATE INDEX idx_listings_property_type ON listings(property_type);
+CREATE INDEX idx_items_seller_id ON items(seller_id);
+CREATE INDEX idx_items_status ON items(status);
+CREATE INDEX idx_items_zone_id ON items(zone_id);
+CREATE INDEX idx_offers_item_id ON offers(item_id);
+CREATE INDEX idx_offers_buyer_id ON offers(buyer_id);
+CREATE INDEX idx_offers_status ON offers(status);
+CREATE INDEX idx_applications_listing_id ON applications(listing_id);
+CREATE INDEX idx_applications_applicant_id ON applications(applicant_id);
+CREATE INDEX idx_applications_status ON applications(status);
+CREATE INDEX idx_seeking_posts_user_id ON seeking_posts(user_id);
+CREATE INDEX idx_seeking_posts_status ON seeking_posts(status);
+CREATE INDEX idx_complaints_complainant_id ON complaints(complainant_id);
+CREATE INDEX idx_complaints_status ON complaints(status);
+CREATE INDEX idx_notifications_user_id ON notifications(user_id);
+CREATE INDEX idx_monthly_bills_listing_id ON monthly_bills(listing_id);
+
+-- ============================================================
+-- 21. Row Level Security (RLS)
+-- ============================================================
+
+-- 1. profiles
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Public profiles are viewable by everyone." ON profiles FOR SELECT USING (true);
+CREATE POLICY "Users can insert their own profile." ON profiles FOR INSERT WITH CHECK (auth.uid() = id);
+CREATE POLICY "Users can update own profile." ON profiles FOR UPDATE USING (auth.uid() = id);
+
+-- 2. zones
+ALTER TABLE zones ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Zones are viewable by everyone." ON zones FOR SELECT USING (true);
+
+-- 3. listings
+ALTER TABLE listings ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Listings are viewable by everyone." ON listings FOR SELECT USING (true);
+CREATE POLICY "Users can insert their own listings." ON listings FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update own listings." ON listings FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete own listings." ON listings FOR DELETE USING (auth.uid() = user_id);
+
+-- 4. utility_costs
+ALTER TABLE utility_costs ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Utility costs viewable by everyone." ON utility_costs FOR SELECT USING (true);
+CREATE POLICY "Listing owners can manage utility costs." ON utility_costs FOR ALL USING (
+  EXISTS (SELECT 1 FROM listings WHERE listings.listing_id = utility_costs.listing_id AND listings.user_id = auth.uid())
+);
+
+-- 5. listing_amenities
+ALTER TABLE listing_amenities ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Amenities viewable by everyone." ON listing_amenities FOR SELECT USING (true);
+CREATE POLICY "Listing owners can manage amenities." ON listing_amenities FOR ALL USING (
+  EXISTS (SELECT 1 FROM listings WHERE listings.listing_id = listing_amenities.listing_id AND listings.user_id = auth.uid())
+);
+
+-- 6. user_preferences
+ALTER TABLE user_preferences ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "User preferences viewable by everyone." ON user_preferences FOR SELECT USING (true);
+CREATE POLICY "Users can manage own preferences." ON user_preferences FOR ALL USING (auth.uid() = user_id);
+
+-- 7. reviews
+ALTER TABLE reviews ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Reviews viewable by everyone." ON reviews FOR SELECT USING (true);
+CREATE POLICY "Users can insert own reviews." ON reviews FOR INSERT WITH CHECK (auth.uid() = reviewer_id);
+CREATE POLICY "Users can update own reviews." ON reviews FOR UPDATE USING (auth.uid() = reviewer_id);
+CREATE POLICY "Users can delete own reviews." ON reviews FOR DELETE USING (auth.uid() = reviewer_id);
+
+-- 8. complaints
+ALTER TABLE complaints ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can view own complaints." ON complaints FOR SELECT USING (auth.uid() = complainant_id);
+CREATE POLICY "Users can insert own complaints." ON complaints FOR INSERT WITH CHECK (auth.uid() = complainant_id);
+
+-- 9. seeking_posts
+ALTER TABLE seeking_posts ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Seeking posts viewable by everyone." ON seeking_posts FOR SELECT USING (true);
+CREATE POLICY "Users can manage own seeking posts." ON seeking_posts FOR ALL USING (auth.uid() = user_id);
+
+-- 10. monthly_bills
+ALTER TABLE monthly_bills ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Bills viewable by involved users." ON monthly_bills FOR SELECT USING (
+  auth.uid() = created_by OR 
+  EXISTS (SELECT 1 FROM bill_payments WHERE bill_payments.bill_id = monthly_bills.bill_id AND bill_payments.resident_user_id = auth.uid())
+);
+CREATE POLICY "Listing owners can manage bills." ON monthly_bills FOR ALL USING (auth.uid() = created_by);
+
+-- 11. bill_payments
+ALTER TABLE bill_payments ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Payments viewable by involved users." ON bill_payments FOR SELECT USING (
+  resident_user_id = auth.uid() OR
+  EXISTS (SELECT 1 FROM monthly_bills WHERE monthly_bills.bill_id = bill_payments.bill_id AND monthly_bills.created_by = auth.uid())
+);
+CREATE POLICY "Residents can update their own payment status." ON bill_payments FOR UPDATE USING (resident_user_id = auth.uid());
+CREATE POLICY "Listing owners can manage payments." ON bill_payments FOR ALL USING (
+  EXISTS (SELECT 1 FROM monthly_bills WHERE monthly_bills.bill_id = bill_payments.bill_id AND monthly_bills.created_by = auth.uid())
+);
+
+-- 12. rent_history
+ALTER TABLE rent_history ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Rent history viewable by everyone." ON rent_history FOR SELECT USING (true);
+CREATE POLICY "Listing owners can manage rent history." ON rent_history FOR ALL USING (auth.uid() = changed_by);
+
+-- 13. items
+ALTER TABLE items ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Items viewable by everyone." ON items FOR SELECT USING (true);
+CREATE POLICY "Users can manage own items." ON items FOR ALL USING (auth.uid() = seller_id);
+
+-- 14. offers
+ALTER TABLE offers ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Offers viewable by buyer and seller." ON offers FOR SELECT USING (
+  buyer_id = auth.uid() OR
+  EXISTS (SELECT 1 FROM items WHERE items.item_id = offers.item_id AND items.seller_id = auth.uid())
+);
+CREATE POLICY "Buyers can insert offers." ON offers FOR INSERT WITH CHECK (buyer_id = auth.uid());
+CREATE POLICY "Buyers and sellers can update offers." ON offers FOR UPDATE USING (
+  buyer_id = auth.uid() OR
+  EXISTS (SELECT 1 FROM items WHERE items.item_id = offers.item_id AND items.seller_id = auth.uid())
+);
+
+-- 15. applications
+ALTER TABLE applications ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Applications viewable by applicant and owner." ON applications FOR SELECT USING (
+  applicant_id = auth.uid() OR
+  EXISTS (SELECT 1 FROM listings WHERE listings.listing_id = applications.listing_id AND listings.user_id = auth.uid())
+);
+CREATE POLICY "Applicants can insert applications." ON applications FOR INSERT WITH CHECK (applicant_id = auth.uid());
+CREATE POLICY "Listing owners can update applications." ON applications FOR UPDATE USING (
+  EXISTS (SELECT 1 FROM listings WHERE listings.listing_id = applications.listing_id AND listings.user_id = auth.uid())
+);
+
+-- 16. verifications
+ALTER TABLE verifications ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can view own verifications." ON verifications FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own verifications." ON verifications FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+-- 17. watchlists
+ALTER TABLE watchlists ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can manage own watchlist." ON watchlists FOR ALL USING (auth.uid() = user_id);
+
+-- 18. seeking_responses
+ALTER TABLE seeking_responses ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Responses viewable by responder and post owner." ON seeking_responses FOR SELECT USING (
+  responder_id = auth.uid() OR
+  EXISTS (SELECT 1 FROM seeking_posts WHERE seeking_posts.post_id = seeking_responses.post_id AND seeking_posts.user_id = auth.uid())
+);
+CREATE POLICY "Responders can insert responses." ON seeking_responses FOR INSERT WITH CHECK (responder_id = auth.uid());
+CREATE POLICY "Post owners can update responses." ON seeking_responses FOR UPDATE USING (
+  EXISTS (SELECT 1 FROM seeking_posts WHERE seeking_posts.post_id = seeking_responses.post_id AND seeking_posts.user_id = auth.uid())
+);
+
+-- 19. notifications
+ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can manage own notifications." ON notifications FOR ALL USING (auth.uid() = user_id);

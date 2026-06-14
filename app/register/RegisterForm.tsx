@@ -3,8 +3,9 @@
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { useToast } from '@/components/Toast';
+import { toast } from 'sonner';
 import Link from 'next/link';
+import { registerSchema } from '@/lib/schemas';
 
 export default function RegisterForm() {
   const searchParams = useSearchParams();
@@ -18,15 +19,17 @@ export default function RegisterForm() {
   const [loading, setLoading] = useState(false);
   
   const router = useRouter();
-  const showToast = useToast();
   const supabase = createClient();
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
-    if (role === 'student' && !email.endsWith('@uiu.ac.bd') && !email.endsWith('@bscse.uiu.ac.bd')) {
-      showToast('Students must use a valid UIU email address.', 'error');
+    // Validate using Zod
+    const validation = registerSchema.safeParse({ name, email, password, role, gender });
+    
+    if (!validation.success) {
+      toast.error(validation.error.issues[0].message);
       setLoading(false);
       return;
     }
@@ -46,15 +49,15 @@ export default function RegisterForm() {
       });
 
       if (error) {
-        showToast(error.message, 'error');
+        toast.error(error.message);
         setLoading(false);
         return;
       }
 
-      showToast('Registration successful! Please log in.', 'success');
+      toast.success('Registration successful! Please log in.');
       router.push('/login');
     } catch (err: any) {
-      showToast(err.message || 'An error occurred during registration', 'error');
+      toast.error(err.message || 'An error occurred during registration');
       setLoading(false);
     }
   };

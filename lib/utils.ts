@@ -29,6 +29,8 @@ export function statusBadge(s: string): string {
   if (s === 'rejected') return '<span class="badge badge-danger">Rejected</span>';
   if (s === 'countered') return '<span class="badge badge-amber">Countered</span>';
   if (s === 'withdrawn') return '<span class="badge badge-gray">Withdrawn</span>';
+  return '';
+}
 
 
 export function calcCompatScore(

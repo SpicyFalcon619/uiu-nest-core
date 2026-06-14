@@ -13,24 +13,24 @@ export default function ExchangeItemCard({ item, isLoggedIn }: { item: Item; isL
       <div className="listing-body">
         <div className="badges">
           <span className="badge badge-navy">{item.category}</span>
-          <span className={`badge ${conditionColor(item.condition)}`}>{conditionLabel(item.condition)}</span>
+          <span className={`badge ${conditionColor(item.item_condition)}`}>{conditionLabel(item.item_condition)}</span>
           <span className="badge badge-gray">{item.zone}</span>
-          {item.linked_listing_id && (
+          {item.listing_id && (
             <span className="badge badge-gold">
               <LinkIcon style={{ width: '15px', height: '15px' }} /> Linked Flat
             </span>
           )}
         </div>
         <div className="listing-title">{item.title}</div>
-        <div className="price">{fmt(item.price)}</div>
+        <div className="price">{fmt(item.asking_price)}</div>
         <div style={{ fontSize: '12px', color: 'var(--gray)' }}>
           Seller: {item.seller_name || 'Anonymous'}
         </div>
         <div className="listing-footer" style={{ gap: '8px' }}>
           {isLoggedIn && (
-            <Link className="btn btn-outline btn-sm" href={`/exchange/${item.item_id || item.id}`}>Make Offer</Link>
+            <Link className="btn btn-outline btn-sm" href={`/exchange/${item.item_id}`}>Make Offer</Link>
           )}
-          <Link className="btn btn-primary btn-sm" href={`/exchange/${item.item_id || item.id}`}>View</Link>
+          <Link className="btn btn-primary btn-sm" href={`/exchange/${item.item_id}`}>View</Link>
         </div>
       </div>
     </div>

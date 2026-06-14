@@ -1,27 +1,36 @@
-'use client';
-
-import { useRouter } from 'next/navigation';
 import { ShieldCheck, Users, ShoppingBag, Receipt, BadgeCheck } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { createClient } from '@/lib/supabase/server';
 import ListingCard from '@/components/ListingCard';
+import ExchangeItemCard from '@/components/ExchangeItemCard';
+import { redirect } from 'next/navigation';
 
-export default function Home() {
-  const router = useRouter();
-  const supabase = createClient();
-  const [listings, setListings] = useState([]);
+export default async function Home() {
+  const supabase = await createClient();
+  
+  // Fetch latest listings
+  const { data: listingsData } = await supabase
+    .from('listings')
+    .select('*, costs:utility_costs(*)')
+    .limit(4)
+    .order('created_at', { ascending: false });
+    
+  const listings = listingsData || [];
 
-  useEffect(() => {
-    async function fetchListings() {
-      const { data } = await supabase.from('listings').select('*, costs:utility_costs(*)').limit(4).order('created_at', { ascending: false });
-      if (data) setListings(data as any);
-    }
-    fetchListings();
-  }, []);
+  // Fetch latest exchange items
+  const { data: itemsData } = await supabase
+    .from('items')
+    .select('*')
+    .limit(4)
+    .order('created_at', { ascending: false });
+    
+  const items = itemsData || [];
+  
+  // Check if user is logged in for ExchangeItemCard
+  const { data: { user } } = await supabase.auth.getUser();
+  const isLoggedIn = !!user;
 
-  const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
+  async function searchListings(formData: FormData) {
+    'use server';
     const params = new URLSearchParams();
     const zone = formData.get('zone');
     const type = formData.get('type');
@@ -29,8 +38,8 @@ export default function Home() {
     if (zone) params.set('zone', zone as string);
     if (type) params.set('type', type as string);
     if (budget) params.set('budget', budget as string);
-    router.push(`/listings?${params.toString()}`);
-  };
+    redirect(`/listings?${params.toString()}`);
+  }
 
   return (
     <>
@@ -38,7 +47,7 @@ export default function Home() {
         <div className="hero-inner">
           <h1>Find your home near UIU.<br /><span className="hero-accent">No hidden costs. Ever.</span></h1>
           <p>The only platform that actually shows every single bill like rent, electricity, gas, and internet right upfront, before you commit to a single taka.</p>
-          <form className="hero-search" onSubmit={handleSearch}>
+          <form className="hero-search" action={searchListings}>
             <div className="hero-search-field">
               <label className="hs-label">Zone</label>
               <select name="zone" defaultValue="">
@@ -114,19 +123,21 @@ export default function Home() {
           </div>
         </div>
 
-        {listings.length > 0 && (
-          <section className="section" style={{ borderTop: '1px solid var(--border)' }}>
-            <div className="section-head">
-              <h2>Latest listings near UIU</h2>
-              <a href="/listings">Browse all listings →</a>
-            </div>
-            <div className="grid-4" id="latestListings">
-              {listings.map(l => (
-                <ListingCard key={(l as any).id} listing={l as any} />
-              ))}
-            </div>
-          </section>
-        )}
+        <section className="section" style={{ borderTop: '1px solid var(--border)' }}>
+          <div className="section-head">
+            <h2>Latest listings near UIU</h2>
+            <a href="/listings">Browse all listings →</a>
+          </div>
+          <div className="grid-4" id="latestListings">
+            {listings.length > 0 ? (
+              listings.map(l => (
+                <ListingCard key={(l as any).listing_id || (l as any).id} listing={l as any} />
+              ))
+            ) : (
+              <p style={{ color: 'var(--gray)', gridColumn: '1/-1', textAlign: 'center' }}>No listings available right now.</p>
+            )}
+          </div>
+        </section>
 
         <section className="section">
           <div className="section-head">
@@ -134,7 +145,13 @@ export default function Home() {
             <a href="/exchange">Browse all items →</a>
           </div>
           <div className="grid-4" id="latestItems">
-            <p style={{ color: 'var(--gray)', gridColumn: '1/-1', textAlign: 'center' }}>No items listed recently.</p>
+            {items.length > 0 ? (
+              items.map(item => (
+                <ExchangeItemCard key={(item as any).item_id || (item as any).id} item={item as any} isLoggedIn={isLoggedIn} />
+              ))
+            ) : (
+              <p style={{ color: 'var(--gray)', gridColumn: '1/-1', textAlign: 'center' }}>No items listed recently.</p>
+            )}
           </div>
         </section>
 

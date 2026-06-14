@@ -1,91 +1,55 @@
-'use client';
-
-import { useEffect, useState, use } from 'react';
-import { createClient } from '@/lib/supabase/client';
-import type { Listing } from '@/types';
-import { MapPin, ShieldCheck, Star, Bed, Activity, Send } from 'lucide-react';
+import { createClient } from '@/lib/supabase/server';
+import { MapPin, ShieldCheck, Bed, Activity } from 'lucide-react';
 import { fmt, propertyTypeLabel, statusLabel, placeholderPhoto } from '@/lib/utils';
-import { useToast } from '@/components/Toast';
+import ApplicationForm from './ApplicationForm';
+import WatchlistButton from '@/components/WatchlistButton';
+import ReviewsSection from '@/components/ReviewsSection';
+import { notFound } from 'next/navigation';
 
-export default function ListingDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  // In Next 15 (which Next 14 App Router sometimes acts like based on latest changes), params is a promise
-  const resolvedParams = use(params);
+export const metadata = {
+  title: 'Listing Details - UIUNest',
+  description: 'View full details for this UIUNest property listing.',
+};
+
+export default async function ListingDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const resolvedParams = await params;
   const id = resolvedParams.id;
   
-  const supabase = createClient();
-  const showToast = useToast();
+  const supabase = await createClient();
   
-  const [listing, setListing] = useState<Listing | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [applying, setApplying] = useState(false);
-  const [message, setMessage] = useState('');
-
-  useEffect(() => {
-    async function fetchListing() {
-      const { data, error } = await supabase
-        .from('listings')
-        .select(`
-          *,
-          costs:utility_costs(*),
-          amenities:listing_amenities(*),
-          reviews(*),
-          owner:profiles!listings_user_id_fkey(name, email, role, phone, profile_pic)
-        `)
-        .eq('listing_id', parseInt(id))
-        .single();
-        
-      if (data) {
-        setListing(data as any);
-      }
-      setLoading(false);
-    }
-    fetchListing();
-  }, [id, supabase]);
-
-  const handleApply = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setApplying(true);
+  const { data: listing, error } = await supabase
+    .from('listings')
+    .select(`
+      *,
+      costs:utility_costs(*),
+      amenities:listing_amenities(*),
+      reviews(*),
+      owner:profiles!listings_user_id_fkey(name, email, role, phone, profile_pic)
+    `)
+    .eq('listing_id', parseInt(id))
+    .single();
     
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      showToast('You must be logged in to apply.', 'error');
-      setApplying(false);
-      return;
-    }
-
-    const { error } = await supabase
-      .from('applications')
-      .insert({
-        listing_id: parseInt(id),
-        applicant_id: user.id,
-        message,
-        status: 'pending'
-      });
-
-    if (error) {
-      showToast(error.message, 'error');
-    } else {
-      showToast('Application sent successfully!', 'success');
-      setMessage('');
-      
-      // Send notification to owner
-      if (listing) {
-         await supabase.from('notifications').insert({
-           user_id: listing.user_id,
-           type: 'application',
-           message: `You received a new application for ${listing.title}`,
-           link: `/dashboard?tab=applications`
-         });
-      }
-    }
-    setApplying(false);
-  };
-
-  if (loading) return <div className="container" style={{ padding: '60px', textAlign: 'center' }}>Loading...</div>;
-  if (!listing) return <div className="container" style={{ padding: '60px', textAlign: 'center' }}>Listing not found.</div>;
+  if (error || !listing) {
+    return notFound();
+  }
 
   const owner = (listing as any).owner || {};
   const thumbnail = listing.photos && listing.photos.length > 0 ? listing.photos[0] : placeholderPhoto();
+
+  // Check if user is logged in
+  const { data: { user } } = await supabase.auth.getUser();
+  const isLoggedIn = !!user;
+
+  // Check watchlist status if logged in
+  let isWatched = false;
+  if (isLoggedIn) {
+    const { count } = await supabase
+      .from('watchlists')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .eq('listing_id', parseInt(id));
+    isWatched = (count || 0) > 0;
+  }
 
   return (
     <div className="container" style={{ padding: '40px 5%' }}>
@@ -100,8 +64,13 @@ export default function ListingDetailPage({ params }: { params: Promise<{ id: st
               <span className="badge badge-gray">{statusLabel(listing.status)}</span>
               {listing.is_verified && <span className="badge badge-gold"><ShieldCheck size={14}/> Verified</span>}
             </div>
-            <h1 style={{ fontSize: '32px', marginBottom: '8px' }}>{listing.title}</h1>
-            <p style={{ color: 'var(--ink-muted)' }}>{listing.address}</p>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <h1 style={{ fontSize: '32px', marginBottom: '8px' }}>{listing.title}</h1>
+                <p style={{ color: 'var(--ink-muted)' }}>{listing.address}</p>
+              </div>
+              <WatchlistButton listingId={parseInt(id)} initialIsWatched={isWatched} />
+            </div>
           </div>
 
           <div style={{ borderRadius: 'var(--radius-lg)', overflow: 'hidden', marginBottom: '32px', height: '400px', background: '#eee' }}>
@@ -128,12 +97,18 @@ export default function ListingDetailPage({ params }: { params: Promise<{ id: st
                 <div style={{ display: 'flex', gap: '8px', color: listing.amenities.power_backup ? 'var(--emerald)' : 'var(--ink-muted)' }}>
                   <Activity size={18}/> Power Backup
                 </div>
-                {/* ... other amenities ... */}
               </div>
             ) : (
               <p style={{ color: 'var(--ink-muted)' }}>Not specified.</p>
             )}
           </div>
+
+          <ReviewsSection 
+            listingId={parseInt(id)} 
+            initialReviews={listing.reviews || []} 
+            isLoggedIn={isLoggedIn}
+            currentUserId={user?.id}
+          />
         </div>
 
         {/* Right Column: Cost Breakdown & Owner info */}
@@ -182,19 +157,11 @@ export default function ListingDetailPage({ params }: { params: Promise<{ id: st
               </div>
             </div>
 
-            <form onSubmit={handleApply}>
-              <textarea 
-                className="form-control" 
-                placeholder="Hi, I'm a UIU student interested in renting..."
-                style={{ height: '100px', marginBottom: '16px' }}
-                value={message}
-                onChange={e => setMessage(e.target.value)}
-                required
-              />
-              <button type="submit" className="btn btn-primary" style={{ width: '100%', display: 'flex', justifyContent: 'center', gap: '8px' }} disabled={applying}>
-                {applying ? 'Sending...' : <><Send size={18}/> Apply Now</>}
-              </button>
-            </form>
+            <ApplicationForm 
+              listingId={parseInt(id)} 
+              ownerId={listing.user_id} 
+              listingTitle={listing.title} 
+            />
           </div>
         </div>
 

@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react';
 import type { Item, Zone } from '@/types';
 import ExchangeItemCard from '@/components/ExchangeItemCard';
+import SellItemModal from '@/components/modals/SellItemModal';
 import { fmt } from '@/lib/utils';
 
 export default function ExchangeContent({
@@ -113,55 +114,12 @@ export default function ExchangeContent({
         )}
       </div>
 
-      <div className={`modal-bg ${sellModalOpen ? 'open' : ''}`} id="sellItemModal">
-        <div className="modal">
-          <button className="modal-close" onClick={() => setSellModalOpen(false)}>×</button>
-          <h3>Sell an Item</h3>
-          <form id="sellItemForm" onSubmit={e => e.preventDefault()}>
-            <div className="form-group"><label>Title</label><input type="text" id="itmTitle" required placeholder="e.g. Study Table with Drawers" /></div>
-            <div className="grid-2">
-              <div className="form-group"><label>Category</label>
-                <select id="itmCategory" required>
-                  <option value="furniture">Furniture</option>
-                  <option value="appliances">Appliances</option>
-                  <option value="electronics">Electronics</option>
-                  <option value="kitchen">Kitchen</option>
-                  <option value="study">Study</option>
-                </select>
-              </div>
-              <div className="form-group"><label>Condition</label>
-                <select id="itmCondition" required>
-                  <option value="new">New</option>
-                  <option value="like_new">Like New</option>
-                  <option value="good">Good</option>
-                  <option value="fair">Fair</option>
-                </select>
-              </div>
-            </div>
-            <div className="grid-2">
-              <div className="form-group"><label>Price (৳)</label><input type="number" id="itmPrice" required min="0" /></div>
-              <div className="form-group"><label>Zone</label>
-                <select id="itmZone" required>
-                  {zones.map(z => (
-                    <option key={z.zone_id} value={z.zone_id}>{z.zone_name}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <div className="form-group"><label>Linked Flat/Listing (Optional)</label>
-              <select id="itmLinkListing">
-                <option value="">None (Not linked)</option>
-              </select>
-            </div>
-            <div className="form-group"><label>Description</label><textarea id="itmDesc" required placeholder="Describe the item condition, size, age, etc."></textarea></div>
-            <div className="grid-2">
-              <div className="form-group"><label>Thumbnail Image (Required)</label><input type="file" id="itmThumbnail" accept="image/*" required style={{ padding: '8px', border: '1px solid var(--border)', borderRadius: '6px', width: '100%' }} /></div>
-              <div className="form-group"><label>Gallery Photos (Optional)</label><input type="file" id="itmPhotos" accept="image/*" multiple style={{ padding: '8px', border: '1px solid var(--border)', borderRadius: '6px', width: '100%' }} /></div>
-            </div>
-            <button type="submit" className="btn btn-primary btn-block">Post Item for Sale</button>
-          </form>
-        </div>
-      </div>
+      <SellItemModal 
+        isOpen={sellModalOpen} 
+        onClose={() => setSellModalOpen(false)} 
+        zones={zones}
+        onSuccess={() => { window.location.reload(); }} // Simple reload to refresh data
+      />
     </div>
   );
 }

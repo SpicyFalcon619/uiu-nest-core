@@ -8,7 +8,7 @@ export default function ListingCard({ listing }: { listing: Listing }) {
   const thumbnail = listing.photos && listing.photos.length > 0 ? listing.photos[0] : placeholderSvg;
   const totalRent = listing.costs ? listing.costs.total_monthly : 0;
   
-  const typeBadge = listing.listing_type === 'Student Listed'
+  const typeBadge = listing.listing_type === 'peer_listing'
     ? <span className="badge badge-blue">Student Listed</span>
     : <span className="badge badge-navy">Landlord Listed</span>;
 
