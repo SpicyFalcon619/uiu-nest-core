@@ -9,6 +9,14 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- ============================================================
 -- ENUMS
 -- ============================================================
+DROP TYPE IF EXISTS user_role CASCADE;
+DROP TYPE IF EXISTS user_gender CASCADE;
+DROP TYPE IF EXISTS user_status CASCADE;
+DROP TYPE IF EXISTS listing_type CASCADE;
+DROP TYPE IF EXISTS property_type CASCADE;
+DROP TYPE IF EXISTS gender_pref CASCADE;
+DROP TYPE IF EXISTS listing_status CASCADE;
+
 CREATE TYPE user_role AS ENUM ('student', 'landlord', 'admin');
 CREATE TYPE user_gender AS ENUM ('male', 'female', 'other');
 CREATE TYPE user_status AS ENUM ('active', 'suspended');
@@ -540,3 +548,26 @@ CREATE POLICY "Post owners can update responses." ON seeking_responses FOR UPDAT
 -- 19. notifications
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can manage own notifications." ON notifications FOR ALL USING (auth.uid() = user_id);
+
+-- ============================================================
+-- 20. Triggers for auth.users
+-- ============================================================
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger AS $$
+BEGIN
+  INSERT INTO public.profiles (id, email, name, role, gender)
+  VALUES (
+    new.id,
+    new.email,
+    COALESCE(new.raw_user_meta_data->>'name', 'User'),
+    COALESCE((new.raw_user_meta_data->>'role')::public.user_role, 'student'::public.user_role),
+    COALESCE((new.raw_user_meta_data->>'gender')::public.user_gender, 'male'::public.user_gender)
+  );
+  RETURN new;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
