@@ -34,21 +34,24 @@ export default function NotificationBell() {
   useEffect(() => {
     setMounted(true);
     let channel: any;
+    let isMounted = true;
 
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user || !isMounted) return;
 
       await fetchNotifs();
+      if (!isMounted) return;
 
-      // Set up realtime subscription
+      // Use a unique channel name to prevent Strict Mode collisions
+      const channelName = `realtime_notifications_${user.id}_${Math.random().toString(36).substring(7)}`;
       channel = supabase
-        .channel('realtime_notifications')
+        .channel(channelName)
         .on(
           'postgres_changes',
           { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` },
           (payload) => {
-            fetchNotifs();
+            if (isMounted) fetchNotifs();
           }
         )
         .subscribe();
@@ -60,6 +63,7 @@ export default function NotificationBell() {
     const interval = setInterval(fetchNotifs, 60000);
     
     return () => {
+      isMounted = false;
       clearInterval(interval);
       if (channel) supabase.removeChannel(channel);
     };
