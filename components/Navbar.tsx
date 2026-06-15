@@ -33,6 +33,11 @@ export default function Navbar() {
           .eq('id', authUser.id)
           .single();
         setUser(profile);
+        if (profile?.role) {
+          localStorage.setItem('userRole', profile.role);
+        }
+      } else {
+        localStorage.removeItem('userRole');
       }
       setLoading(false);
     };
@@ -99,11 +104,14 @@ export default function Navbar() {
 
   const initials = user?.name ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'US';
 
+  const assumedRole = typeof window !== 'undefined' ? localStorage.getItem('userRole') : null;
+  const currentRole = user?.role || assumedRole;
+
   const navLinks = [
     { href: '/', label: 'Home', icon: <Home size={18} className="nav-icon" /> },
     { href: '/listings', label: 'Listings', icon: <Building2 size={18} className="nav-icon" /> },
     { href: '/exchange', label: 'Market', icon: <ShoppingBag size={18} className="nav-icon" /> },
-    ...(user?.role !== 'landlord' ? [{ href: '/seeking', label: 'Seeking', icon: <Search size={18} className="nav-icon" /> }] : []),
+    ...(currentRole !== 'landlord' ? [{ href: '/seeking', label: 'Seeking', icon: <Search size={18} className="nav-icon" /> }] : []),
   ];
 
   return (

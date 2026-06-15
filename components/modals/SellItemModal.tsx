@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import Modal from './Modal';
 import type { Zone } from '@/types';
 import { createItemSchema } from '@/lib/schemas';
+import CustomSelect from '@/components/CustomSelect';
 
 interface SellItemModalProps {
   isOpen: boolean;
@@ -86,26 +87,32 @@ export default function SellItemModal({ isOpen, onClose, zones, onSuccess }: Sel
         <div className="grid-2">
           <div className="form-group">
             <label>Category</label>
-            <div className="custom-select-wrapper">
-              <select value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} required>
-                <option value="furniture">Furniture</option>
-                <option value="appliances">Appliances</option>
-                <option value="electronics">Electronics</option>
-                <option value="kitchen">Kitchen</option>
-                <option value="study">Study</option>
-              </select>
-            </div>
+            <CustomSelect
+              name="category"
+              value={formData.category}
+              onChange={val => setFormData({...formData, category: val})}
+              options={[
+                { value: 'furniture', label: 'Furniture' },
+                { value: 'appliances', label: 'Appliances' },
+                { value: 'electronics', label: 'Electronics' },
+                { value: 'kitchen', label: 'Kitchen' },
+                { value: 'study', label: 'Study' }
+              ]}
+            />
           </div>
           <div className="form-group">
             <label>Condition</label>
-            <div className="custom-select-wrapper">
-              <select value={formData.item_condition} onChange={e => setFormData({...formData, item_condition: e.target.value})} required>
-                <option value="new">New</option>
-                <option value="like_new">Like New</option>
-                <option value="good">Good</option>
-                <option value="fair">Fair</option>
-              </select>
-            </div>
+            <CustomSelect
+              name="item_condition"
+              value={formData.item_condition}
+              onChange={val => setFormData({...formData, item_condition: val})}
+              options={[
+                { value: 'new', label: 'New' },
+                { value: 'like_new', label: 'Like New' },
+                { value: 'good', label: 'Good' },
+                { value: 'fair', label: 'Fair' }
+              ]}
+            />
           </div>
         </div>
         
@@ -116,14 +123,15 @@ export default function SellItemModal({ isOpen, onClose, zones, onSuccess }: Sel
           </div>
           <div className="form-group">
             <label>Zone</label>
-            <div className="custom-select-wrapper">
-              <select value={formData.zone_id} onChange={e => setFormData({...formData, zone_id: e.target.value})} required>
-                <option value="">Select Zone...</option>
-                {zones.map(z => (
-                  <option key={z.zone_id} value={z.zone_id}>{z.zone_name}</option>
-                ))}
-              </select>
-            </div>
+            <CustomSelect
+              name="zone_id"
+              value={formData.zone_id}
+              onChange={val => setFormData({...formData, zone_id: val})}
+              options={[
+                { value: '', label: 'Select Zone...' },
+                ...zones.map(z => ({ value: z.zone_id.toString(), label: z.zone_name }))
+              ]}
+            />
           </div>
         </div>
         

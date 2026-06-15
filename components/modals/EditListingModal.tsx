@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import Modal from './Modal';
 import type { Zone } from '@/types';
+import CustomSelect from '@/components/CustomSelect';
 
 interface EditListingModalProps {
   isOpen: boolean;
@@ -101,23 +102,29 @@ export default function EditListingModal({ isOpen, onClose, listingId, onSuccess
         <div className="grid-2">
           <div className="form-group">
             <label>Zone</label>
-            <div className="custom-select-wrapper">
-              <select value={formData.zone_id} onChange={e => setFormData({...formData, zone_id: e.target.value})} required>
-                <option value="">Select Zone...</option>
-                {zones.map(z => <option key={z.zone_id} value={z.zone_id}>{z.zone_name}</option>)}
-              </select>
-            </div>
+            <CustomSelect
+              name="zone_id"
+              value={formData.zone_id}
+              onChange={val => setFormData({...formData, zone_id: val})}
+              options={[
+                { value: '', label: 'Select Zone...' },
+                ...zones.map(z => ({ value: z.zone_id.toString(), label: z.zone_name }))
+              ]}
+            />
           </div>
           <div className="form-group">
             <label>Property Type</label>
-            <div className="custom-select-wrapper">
-              <select value={formData.property_type} onChange={e => setFormData({...formData, property_type: e.target.value})}>
-                <option value="single_room">Single Room</option>
-                <option value="shared_room">Shared Room</option>
-                <option value="full_mess">Full Mess</option>
-                <option value="sublet">Sublet</option>
-              </select>
-            </div>
+            <CustomSelect
+              name="property_type"
+              value={formData.property_type}
+              onChange={val => setFormData({...formData, property_type: val})}
+              options={[
+                { value: 'single_room', label: 'Single Room' },
+                { value: 'shared_room', label: 'Shared Room' },
+                { value: 'full_mess', label: 'Full Mess' },
+                { value: 'sublet', label: 'Sublet' }
+              ]}
+            />
           </div>
         </div>
 
@@ -129,13 +136,16 @@ export default function EditListingModal({ isOpen, onClose, listingId, onSuccess
         <div className="grid-2">
           <div className="form-group">
             <label>Status</label>
-            <div className="custom-select-wrapper">
-              <select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})}>
-                <option value="available">Available</option>
-                <option value="occupied">Occupied</option>
-                <option value="soon_vacant">Soon Vacant</option>
-              </select>
-            </div>
+            <CustomSelect
+              name="status"
+              value={formData.status}
+              onChange={val => setFormData({...formData, status: val})}
+              options={[
+                { value: 'available', label: 'Available' },
+                { value: 'occupied', label: 'Occupied' },
+                { value: 'soon_vacant', label: 'Soon Vacant' }
+              ]}
+            />
           </div>
           <div className="form-group">
             <label>Total Rooms</label>

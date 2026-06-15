@@ -36,6 +36,39 @@ export default function DashboardContent({ data, user }: { data: DashboardData; 
     <div className="container">
       <h1 className="page-title">Welcome back, {user.name}</h1>
 
+      <div className="stats-row" style={{ display: 'flex', gap: '16px', marginBottom: '24px', flexWrap: 'wrap' }}>
+        {user.role !== 'admin' && (
+          <div className="stat-card">
+            <div className="stat-label">Verification</div>
+            <div className="stat-value" style={{ color: verifColor, display: 'flex', alignItems: 'center', gap: '8px', fontSize: '18px' }}>
+              {verifText}
+            </div>
+          </div>
+        )}
+        <div className="stat-card">
+          <div className="stat-label">Active Listings</div>
+          <div className="stat-value">{myListings.length}</div>
+        </div>
+        {user.role === 'student' && (
+          <div className="stat-card">
+            <div className="stat-label">Watchlisted</div>
+            <div className="stat-value">{watched.length}</div>
+          </div>
+        )}
+        <div className="stat-card">
+          <div className="stat-label">Active Offers</div>
+          <div className="stat-value">{activeOffersCount}</div>
+        </div>
+        {user.role === 'student' && (
+          <div className="stat-card">
+            <div className="stat-label">Compatibility</div>
+            <div className="stat-value" style={{ color: compatColor, display: 'flex', alignItems: 'center', gap: '8px', fontSize: '18px' }}>
+              {compatStatus}
+            </div>
+          </div>
+        )}
+      </div>
+
       <div className="dashboard-layout">
         <div className="dashboard-sidebar card" style={{ padding: '16px' }}>
           <div className="sidebar-section-title" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--gray)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px', paddingLeft: '16px' }}>
@@ -48,9 +81,11 @@ export default function DashboardContent({ data, user }: { data: DashboardData; 
           <div className={`dashboard-nav-item ${activeTab === 'items' ? 'active' : ''}`} onClick={() => switchTab('items')}>
             <ShoppingBag size={18} /> Exchange Items
           </div>
-          <div className={`dashboard-nav-item ${activeTab === 'seeking' ? 'active' : ''}`} onClick={() => switchTab('seeking')}>
-            <Search size={18} /> Looking For
-          </div>
+          {user.role === 'student' && (
+            <div className={`dashboard-nav-item ${activeTab === 'seeking' ? 'active' : ''}`} onClick={() => switchTab('seeking')}>
+              <Search size={18} /> Looking For
+            </div>
+          )}
           
           <div className="sidebar-section-title" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--gray)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px', marginTop: '16px', paddingLeft: '16px' }}>
             Interactions

@@ -5,6 +5,7 @@ import { X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import { createBillSchema } from '@/lib/schemas';
+import CustomSelect from '@/components/CustomSelect';
 
 export default function CreateBillModal({ 
   myListings, 
@@ -120,18 +121,15 @@ export default function CreateBillModal({
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label>Select Property</label>
-            <div className="custom-select-wrapper">
-              <select 
-                value={form.listing_id} 
-                onChange={e => setForm({...form, listing_id: e.target.value})}
-                required
-              >
-                {myListings.length === 0 && <option value="">No active listings found</option>}
-                {myListings.map(l => (
-                  <option key={l.listing_id || l.id} value={l.listing_id || l.id}>{l.title}</option>
-                ))}
-              </select>
-            </div>
+            <CustomSelect
+              name="listing_id"
+              value={form.listing_id}
+              onChange={val => setForm({...form, listing_id: val})}
+              options={myListings.length === 0 
+                ? [{ value: '', label: 'No active listings found' }]
+                : myListings.map(l => ({ value: String(l.listing_id || l.id), label: l.title }))
+              }
+            />
           </div>
 
           <div className="form-group">

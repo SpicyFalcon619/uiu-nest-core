@@ -7,6 +7,7 @@ import type { Listing, Zone } from '@/types';
 import ListingCard from '@/components/ListingCard';
 import MapView from '@/components/MapView';
 import CustomSelect from '@/components/CustomSelect';
+import CreateListingModal from '@/components/modals/CreateListingModal';
 import { SlidersHorizontal, ChevronDown, MapPin, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function ListingsClient({ initialListings, zones, currentPage, totalPages }: { initialListings: Listing[], zones: Zone[], currentPage: number, totalPages: number }) {
@@ -20,6 +21,7 @@ export default function ListingsClient({ initialListings, zones, currentPage, to
   const [listingType, setListingType] = useState('all');
   const [sort, setSort] = useState(searchParams.get('sort') || 'newest');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [listModalOpen, setListModalOpen] = useState(false);
 
   const applyFilters = () => {
     const params = new URLSearchParams(searchParams.toString());
@@ -52,7 +54,7 @@ export default function ListingsClient({ initialListings, zones, currentPage, to
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
         <h1 className="page-title" style={{ margin: 0 }}>Browse Listings</h1>
         <div>
-          <button className="btn btn-gold">+ List Property</button>
+          <button className="btn btn-gold" onClick={() => setListModalOpen(true)}>+ List Property</button>
         </div>
       </div>
       <div className="listings-layout">
@@ -167,6 +169,15 @@ export default function ListingsClient({ initialListings, zones, currentPage, to
           </div>
         </main>
       </div>
+
+      <CreateListingModal 
+        isOpen={listModalOpen} 
+        onClose={() => setListModalOpen(false)} 
+        onSuccess={() => {
+          setListModalOpen(false);
+          // optionally refresh data
+        }} 
+      />
     </div>
   );
 }

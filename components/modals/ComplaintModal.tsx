@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import Modal from './Modal';
+import CustomSelect from '@/components/CustomSelect';
 
 interface ComplaintModalProps {
   isOpen: boolean;
@@ -65,19 +66,18 @@ export default function ComplaintModal({ isOpen, onClose, listingId, againstUser
 
         <div className="form-group">
           <label>Category</label>
-          <div className="custom-select-wrapper">
-            <select 
-              value={category} 
-              onChange={e => setCategory(e.target.value)} 
-              required
-            >
-              <option value="misrepresentation">Misrepresentation / Fake Listing</option>
-              <option value="hidden_costs">Hidden Costs</option>
-              <option value="harassment">Harassment / Bad Behavior</option>
-              <option value="deposit_not_returned">Deposit Not Returned</option>
-              <option value="other">Other</option>
-            </select>
-          </div>
+          <CustomSelect
+            name="category"
+            value={category}
+            onChange={val => setCategory(val)}
+            options={[
+              { value: 'misrepresentation', label: 'Misrepresentation / Fake Listing' },
+              { value: 'hidden_costs', label: 'Hidden Costs' },
+              { value: 'harassment', label: 'Harassment / Bad Behavior' },
+              { value: 'deposit_not_returned', label: 'Deposit Not Returned' },
+              { value: 'other', label: 'Other' }
+            ]}
+          />
         </div>
 
         <div className="form-group">
