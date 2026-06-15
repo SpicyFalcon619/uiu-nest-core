@@ -35,6 +35,8 @@ export default function AdminContent({
   const [verifications, setVerifications] = useState(initialVerifications);
   const [complaints, setComplaints] = useState(initialComplaints);
   const [notifications, setNotifications] = useState(initialNotifications || []);
+  const [usersList, setUsersList] = useState(allUsers);
+  const [listingsList, setListingsList] = useState(allListings);
 
   // Sync tab state with URL changes and handle mounting
   useEffect(() => {
@@ -94,17 +96,18 @@ export default function AdminContent({
       toast.error(result.error || 'Failed to update user');
     } else {
       toast.success(`User marked as ${status}`);
-      window.location.reload();
+      setUsersList(usersList.map(u => u.id === id ? { ...u, status } : u));
     }
   };
 
   const deleteListing = async (id: number) => {
-    if (!confirm('Are you sure you want to completely delete this listing? This action cannot be undone.')) return;
+    if (!confirm('Are you sure you want to delete this listing?')) return;
     const result = await adminDeleteListing(id);
-    if (!result.success) toast.error(result.error || 'Failed to delete listing');
-    else {
-      toast.success('Listing completely deleted');
-      window.location.reload();
+    if (!result.success) {
+      toast.error(result.error || 'Failed to delete listing');
+    } else {
+      toast.success('Listing deleted');
+      setListingsList(listingsList.filter(l => l.listing_id !== id));
     }
   };
 
@@ -172,7 +175,7 @@ export default function AdminContent({
               <table className="table">
                 <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Action</th></tr></thead>
                 <tbody>
-                  {allUsers.map(u => (
+                  {usersList.map(u => (
                     <tr key={u.id}>
                       <td><strong>{u.name}</strong></td>
                       <td>{u.email}</td>
@@ -199,7 +202,7 @@ export default function AdminContent({
               <table className="table">
                 <thead><tr><th>ID</th><th>Title</th><th>Zone</th><th>Owner</th><th>Status</th><th>Action</th></tr></thead>
                 <tbody>
-                  {allListings.map(l => (
+                  {listingsList.map(l => (
                     <tr key={l.listing_id}>
                       <td>{l.listing_id}</td>
                       <td><a href={`/listings/${l.listing_id}`} style={{ color: 'var(--navy)', fontWeight: 600 }}>{l.title}</a></td>
