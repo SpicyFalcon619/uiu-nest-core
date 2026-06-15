@@ -10,7 +10,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const isHomePage = pathname === '/';
 
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <title>UIUNest</title>
         <link rel="preconnect" href="https://fonts.googleapis.com" />

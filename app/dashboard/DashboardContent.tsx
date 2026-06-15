@@ -40,7 +40,7 @@ export default function DashboardContent({ data, user }: { data: DashboardData; 
         {user.role !== 'admin' && (
           <div className="stat-card">
             <div className="stat-label">Verification</div>
-            <div className="stat-value" style={{ color: verifColor, display: 'flex', alignItems: 'center', gap: '8px', fontSize: '18px' }}>
+            <div className="stat-value" style={{ color: verifColor, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '18px' }}>
               {verifText}
             </div>
           </div>
