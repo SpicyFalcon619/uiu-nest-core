@@ -182,7 +182,7 @@ export default function Navbar() {
                 {user ? (
                   <>
                     <div style={{ position: 'relative', display: 'inline-block' }}>
-                      {user.role !== 'admin' && <NotificationBell />}
+                      <NotificationBell />
                     </div>
                     {user.role !== 'admin' && (
                       <Link className="icon-btn" href="/dashboard?tab=watch" title="Watchlist">

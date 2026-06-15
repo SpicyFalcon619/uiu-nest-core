@@ -31,7 +31,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           } catch (e) {}
         `}} />
       </head>
-      <body className={isHomePage ? 'landing-page' : ''}>
+      <body className={isHomePage ? 'landing-page' : ''} suppressHydrationWarning>
         <Toaster position="bottom-right" richColors />
         <Navbar />
         <main style={{ flex: 1 }}>{children}</main>
