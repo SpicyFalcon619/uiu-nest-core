@@ -67,14 +67,14 @@ export const updateProfileSchema = z.object({
 });
 
 export const updatePreferencesSchema = z.object({
-  sleep_schedule: z.enum(['early', 'late', 'flexible'], { errorMap: () => ({ message: 'Please select your sleep schedule' }) }),
+  sleep_schedule: z.enum(['early', 'late', 'flexible'], { message: 'Please select your sleep schedule' }),
   study_hours: z.number().min(0).max(24),
-  diet: z.enum(['non_veg', 'vegetarian', 'halal_strict'], { errorMap: () => ({ message: 'Please select your dietary habit' }) }),
-  guest_policy: z.enum(['not_allowed', 'restricted', 'allowed'], { errorMap: () => ({ message: 'Please select your guest policy' }) }),
+  diet: z.enum(['non_veg', 'vegetarian', 'halal_strict'], { message: 'Please select your dietary habit' }),
+  guest_policy: z.enum(['not_allowed', 'restricted', 'allowed'], { message: 'Please select your guest policy' }),
   smoking_tolerance: z.boolean(),
-  preferred_gender: z.enum(['male', 'female', 'any'], { errorMap: () => ({ message: 'Please select your preferred flatmate gender' }) }),
+  preferred_gender: z.enum(['male', 'female', 'any'], { message: 'Please select your preferred flatmate gender' }),
   cleanliness_score: z.number().min(1).max(5),
-  noise_tolerance: z.enum(['quiet', 'moderate', 'noisy'], { errorMap: () => ({ message: 'Please select your noise tolerance' }) })
+  noise_tolerance: z.enum(['quiet', 'moderate', 'noisy'], { message: 'Please select your noise tolerance' })
 });
 
 export const createBillSchema = z.object({

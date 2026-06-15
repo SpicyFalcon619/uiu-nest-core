@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import Modal from './Modal';
 import CustomSelect from '../CustomSelect';
-import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
+import { uploadVerificationDocument } from '@/app/actions/upload';
 
 interface VerificationModalProps {
   isOpen: boolean;
@@ -12,7 +12,6 @@ interface VerificationModalProps {
 }
 
 export default function VerificationModal({ isOpen, onClose, userId, onSuccess }: VerificationModalProps) {
-  const supabase = createClient();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     nid_type: 'National ID',
@@ -30,41 +29,43 @@ export default function VerificationModal({ isOpen, onClose, userId, onSuccess }
     setLoading(true);
 
     try {
-      // 1. Upload to uiunest bucket -> [userId]/verifications folder (required for Storage RLS!)
-      const ext = file.name.split('.').pop();
-      const filePath = `${userId}/verifications/${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
+      // Convert file to base64 to send to server action
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      
+      reader.onload = async () => {
+        try {
+          const base64Str = (reader.result as string).split(',')[1];
+          
+          const result = await uploadVerificationDocument(
+            userId,
+            formData.nid_type,
+            formData.description,
+            file.name,
+            base64Str,
+            file.type
+          );
 
-      const { error: uploadError } = await supabase.storage
-        .from('uiunest')
-        .upload(filePath, file, { cacheControl: '3600', upsert: false });
+          if (!result.success) {
+            throw new Error(result.error);
+          }
 
-      if (uploadError) throw new Error('Storage Upload: ' + uploadError.message);
-
-      // 2. Get public URL
-      const { data: publicUrlData } = supabase.storage
-        .from('uiunest')
-        .getPublicUrl(filePath);
-
-      const documentPath = publicUrlData.publicUrl;
-
-      // 3. Insert row into verifications
-      const { error: insertError } = await supabase
-        .from('verifications')
-        .insert({
-          user_id: userId,
-          nid_type: formData.nid_type,
-          document_path: documentPath,
-          description: formData.description
-        });
-
-      if (insertError) throw new Error('Database Insert: ' + insertError.message);
-
-      toast.success('Verification submitted! An admin will review it shortly.');
-      onSuccess();
-      onClose();
+          toast.success('Verification submitted! An admin will review it shortly.');
+          onSuccess();
+          onClose();
+        } catch (error: any) {
+          toast.error(error.message || 'Failed to submit verification');
+        } finally {
+          setLoading(false);
+        }
+      };
+      
+      reader.onerror = () => {
+        toast.error('Failed to read file');
+        setLoading(false);
+      };
     } catch (error: any) {
-      toast.error(error.message || 'Failed to submit verification');
-    } finally {
+      toast.error(error.message || 'Failed to prepare verification');
       setLoading(false);
     }
   };
