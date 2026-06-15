@@ -173,17 +173,31 @@ export default function ProfileContent({
           </button>
         </form>
 
-        <div style={{ marginTop: '32px', paddingTop: '24px', borderTop: '1px solid var(--border)' }}>
-          <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: 0 }}>
-            <ShieldCheck size={20} color="var(--success)" /> Verification
-          </h3>
-          <p style={{ fontSize: '14px', color: 'var(--gray)' }}>
-            Verifying your identity helps build trust within the UIUNest community and increases your chances of finding flatmates.
-          </p>
-          <button className="btn btn-outline btn-block" onClick={() => alert('Verification feature coming soon')}>
-            Submit ID Document
-          </button>
-        </div>
+        {profile.role === 'admin' ? (
+          <div style={{ marginTop: '32px', paddingTop: '24px', borderTop: '1px solid var(--border)' }}>
+            <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: 0, color: 'var(--navy)' }}>
+              <ShieldCheck size={20} color="var(--navy)" /> System Administrator
+            </h3>
+            <p style={{ fontSize: '14px', color: 'var(--gray)' }}>
+              Your account has full administrative privileges. You have access to the Admin Panel to manage users, listings, and system settings.
+            </p>
+            <Link href="/admin" className="btn btn-primary btn-block" style={{ textAlign: 'center', display: 'block', marginTop: '16px' }}>
+              Go to Admin Panel
+            </Link>
+          </div>
+        ) : (
+          <div style={{ marginTop: '32px', paddingTop: '24px', borderTop: '1px solid var(--border)' }}>
+            <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: 0 }}>
+              <ShieldCheck size={20} color="var(--success)" /> Verification
+            </h3>
+            <p style={{ fontSize: '14px', color: 'var(--gray)' }}>
+              Verifying your identity helps build trust within the UIUNest community and increases your chances of finding flatmates.
+            </p>
+            <button className="btn btn-outline btn-block" onClick={() => alert('Verification feature coming soon')}>
+              Submit ID Document
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Right Column: Roommate Preferences (Students Only) */}

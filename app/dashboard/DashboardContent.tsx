@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { CheckCircle, Clock, XCircle, UserCheck, Trash2 } from 'lucide-react';
+import { CheckCircle, Clock, XCircle, UserCheck, Trash2, Building2, ShoppingBag, Search, Heart, List, FileText } from 'lucide-react';
 import type { DashboardData, Profile } from '@/types';
 import { fmt, conditionLabel, conditionColor, statusBadge, propertyTypeLabel } from '@/lib/utils';
 import ListingCard from '@/components/ListingCard';
@@ -65,58 +65,84 @@ export default function DashboardContent({ data, user }: { data: DashboardData; 
         )}
       </div>
 
-      <div className="tabs">
-        <div className={`tab ${activeTab === 'listings' ? 'active' : ''}`} onClick={() => switchTab('listings')}>My Listings</div>
-        {user.role !== 'landlord' && (
-          <>
-            <div className={`tab ${activeTab === 'items' ? 'active' : ''}`} onClick={() => switchTab('items')}>My Exchange Items</div>
-            <div className={`tab ${activeTab === 'seeking' ? 'active' : ''}`} onClick={() => switchTab('seeking')}>Looking For</div>
-            <div className={`tab ${activeTab === 'watch' ? 'active' : ''}`} onClick={() => switchTab('watch')}>Watchlist</div>
-            <div className={`tab ${activeTab === 'offers' ? 'active' : ''}`} onClick={() => switchTab('offers')}>Offers</div>
-          </>
-        )}
-        <div className={`tab ${activeTab === 'applications' ? 'active' : ''}`} onClick={() => switchTab('applications')}>Housing Applications</div>
-      </div>
-
-      {activeTab === 'listings' && (
-        <div id="tab-listings">
-          <div className="card">
-            <h3 style={{ marginTop: 0, color: 'var(--navy)' }}>My Properties</h3>
-            {myListings.length === 0 ? (
-              <p style={{ color: 'var(--gray)', textAlign: 'center', padding: '24px 0' }}>
-                You haven't listed any properties yet. <Link href="/listings/new">List property now</Link>
-              </p>
-            ) : (
-              <div className="table-responsive">
-                <table className="table">
-                  <thead><tr><th>Title</th><th>Zone</th><th>Status</th><th>Total Cost</th><th>Actions</th></tr></thead>
-                  <tbody>
-                    {myListings.map(l => (
-                      <tr key={l.listing_id || l.id}>
-                        <td><strong>{l.title}</strong></td>
-                        <td>{l.zone || l.zone_id}</td>
-                        <td>
-                          <select className="form-control" style={{ padding: '4px 8px', fontSize: '13px', height: 'auto', width: 'auto' }} defaultValue={l.status}>
-                            <option value="available">Available</option>
-                            <option value="occupied">Occupied</option>
-                            <option value="soon_vacant">Soon Vacant</option>
-                          </select>
-                        </td>
-                        <td>{fmt(l.costs?.total_monthly || 0)}</td>
-                        <td>
-                          <button className="btn btn-outline btn-sm">Edit</button>
-                          <button className="btn btn-danger btn-sm" style={{ marginLeft: '4px' }}>Delete</button>
-                          <Link className="btn btn-primary btn-sm" style={{ marginLeft: '4px' }} href={`/listings/${l.listing_id || l.id}`}>View</Link>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+      <div className="dashboard-layout">
+        <div className="dashboard-sidebar card" style={{ padding: '16px' }}>
+          <div className="sidebar-section-title" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--gray)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px', paddingLeft: '16px' }}>
+            Management
+          </div>
+          <div className={`dashboard-nav-item ${activeTab === 'listings' ? 'active' : ''}`} onClick={() => switchTab('listings')}>
+            <Building2 size={18} /> My Listings
+          </div>
+          
+          {user.role !== 'landlord' && (
+            <>
+              <div className={`dashboard-nav-item ${activeTab === 'items' ? 'active' : ''}`} onClick={() => switchTab('items')}>
+                <ShoppingBag size={18} /> Exchange Items
               </div>
-            )}
+              <div className={`dashboard-nav-item ${activeTab === 'seeking' ? 'active' : ''}`} onClick={() => switchTab('seeking')}>
+                <Search size={18} /> Looking For
+              </div>
+              
+              <div className="sidebar-section-title" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--gray)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px', marginTop: '16px', paddingLeft: '16px' }}>
+                Interactions
+              </div>
+              <div className={`dashboard-nav-item ${activeTab === 'watch' ? 'active' : ''}`} onClick={() => switchTab('watch')}>
+                <Heart size={18} /> Watchlist
+              </div>
+              <div className={`dashboard-nav-item ${activeTab === 'offers' ? 'active' : ''}`} onClick={() => switchTab('offers')}>
+                <List size={18} /> Offers
+              </div>
+            </>
+          )}
+          
+          <div className="sidebar-section-title" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--gray)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px', marginTop: '16px', paddingLeft: '16px' }}>
+            Paperwork
+          </div>
+          <div className={`dashboard-nav-item ${activeTab === 'applications' ? 'active' : ''}`} onClick={() => switchTab('applications')}>
+            <FileText size={18} /> Housing Applications
           </div>
         </div>
-      )}
+
+        <div className="dashboard-main">
+          {activeTab === 'listings' && (
+            <div id="tab-listings">
+              <div className="card">
+                <h3 style={{ marginTop: 0, color: 'var(--navy)' }}>My Properties</h3>
+                {myListings.length === 0 ? (
+                  <p style={{ color: 'var(--gray)', textAlign: 'center', padding: '24px 0' }}>
+                    You haven't listed any properties yet. <Link href="/listings/new">List property now</Link>
+                  </p>
+                ) : (
+                  <div className="table-responsive">
+                    <table className="table">
+                      <thead><tr><th>Title</th><th>Zone</th><th>Status</th><th>Total Cost</th><th>Actions</th></tr></thead>
+                      <tbody>
+                        {myListings.map(l => (
+                          <tr key={l.listing_id || l.id}>
+                            <td><strong>{l.title}</strong></td>
+                            <td>{l.zone || l.zone_id}</td>
+                            <td>
+                              <select className="form-control" style={{ padding: '4px 8px', fontSize: '13px', height: 'auto', width: 'auto' }} defaultValue={l.status}>
+                                <option value="available">Available</option>
+                                <option value="occupied">Occupied</option>
+                                <option value="soon_vacant">Soon Vacant</option>
+                              </select>
+                            </td>
+                            <td>{fmt(l.costs?.total_monthly || 0)}</td>
+                            <td>
+                              <button className="btn btn-outline btn-sm">Edit</button>
+                              <button className="btn btn-danger btn-sm" style={{ marginLeft: '4px' }}>Delete</button>
+                              <Link className="btn btn-primary btn-sm" style={{ marginLeft: '4px' }} href={`/listings/${l.listing_id || l.id}`}>View</Link>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
       {activeTab === 'items' && user.role !== 'landlord' && (
         <div id="tab-items">
@@ -444,6 +470,8 @@ export default function DashboardContent({ data, user }: { data: DashboardData; 
           </div>
         </div>
       )}
+        </div>
+      </div>
     </div>
   );
 }

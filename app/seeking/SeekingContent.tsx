@@ -1,8 +1,11 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import Link from 'next/link';
+import { PlusCircle } from 'lucide-react';
 import type { SeekingPost, Zone } from '@/types';
 import SeekCard from '@/components/SeekCard';
+import CustomSelect from '@/components/CustomSelect';
 import CreateSeekingModal from '@/components/modals/CreateSeekingModal';
 
 export default function SeekingContent({
@@ -54,36 +57,40 @@ export default function SeekingContent({
       <div className="card" style={{ marginBottom: '24px', display: 'flex', flexWrap: 'wrap', gap: '16px', alignItems: 'end' }}>
         <div className="form-group" style={{ margin: 0 }}>
           <label>Looking For</label>
-          <div className="custom-select-wrapper">
-            <select value={filterType} onChange={e => setFilterType(e.target.value)}>
-              <option value="all">Any Property Type</option>
-              <option value="single_room">Single Room</option>
-              <option value="shared_room">Shared Room</option>
-              <option value="full_mess">Full Mess</option>
-              <option value="sublet">Sublet</option>
-            </select>
-          </div>
+          <CustomSelect
+            value={filterType}
+            onChange={(v) => setFilterType(v)}
+            options={[
+              { value: 'all', label: 'Any Property Type' },
+              { value: 'single_room', label: 'Single Room' },
+              { value: 'shared_room', label: 'Shared Room' },
+              { value: 'full_mess', label: 'Full Mess' },
+              { value: 'sublet', label: 'Sublet' }
+            ]}
+          />
         </div>
         <div className="form-group" style={{ margin: 0 }}>
           <label>Zone</label>
-          <div className="custom-select-wrapper">
-            <select value={filterZone} onChange={e => setFilterZone(e.target.value)}>
-              <option value="all">All Zones</option>
-              {zones.map(z => (
-                <option key={z.zone_id} value={z.zone_name}>{z.zone_name}</option>
-              ))}
-            </select>
-          </div>
+          <CustomSelect
+            value={filterZone}
+            onChange={(v) => setFilterZone(v)}
+            options={[
+              { value: 'all', label: 'All Zones' },
+              ...zones.map(z => ({ value: z.zone_name, label: z.zone_name }))
+            ]}
+          />
         </div>
         <div className="form-group" style={{ margin: 0 }}>
           <label>Preferred Gender</label>
-          <div className="custom-select-wrapper">
-            <select value={filterGender} onChange={e => setFilterGender(e.target.value)}>
-              <option value="all">Any Gender</option>
-              <option value="male">Male</option>
-              <option value="female">Female</option>
-            </select>
-          </div>
+          <CustomSelect
+            value={filterGender}
+            onChange={(v) => setFilterGender(v)}
+            options={[
+              { value: 'all', label: 'Any Gender' },
+              { value: 'male', label: 'Male' },
+              { value: 'female', label: 'Female' }
+            ]}
+          />
         </div>
       </div>
 
