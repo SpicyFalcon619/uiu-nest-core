@@ -30,14 +30,14 @@ export default function ProfileContent({
 
   // Prefs Form State
   const [prefsForm, setPrefsForm] = useState({
-    sleep_schedule: initialPreferences?.sleep_schedule || 'flexible',
+    sleep_schedule: initialPreferences?.sleep_schedule || '',
     study_hours: initialPreferences?.study_hours || 2,
-    diet: initialPreferences?.diet || 'any',
-    guest_policy: initialPreferences?.guest_policy || 'flexible',
+    diet: initialPreferences?.diet || '',
+    guest_policy: initialPreferences?.guest_policy || '',
     smoking_tolerance: initialPreferences ? initialPreferences.smoking_tolerance : true,
-    preferred_gender: initialPreferences?.preferred_gender || 'any',
+    preferred_gender: initialPreferences?.preferred_gender || '',
     cleanliness_score: initialPreferences?.cleanliness_score || 3,
-    noise_tolerance: initialPreferences?.noise_tolerance || 'moderate'
+    noise_tolerance: initialPreferences?.noise_tolerance || ''
   });
 
   const handleProfileSubmit = async (e: React.FormEvent) => {
@@ -218,6 +218,7 @@ export default function ProfileContent({
                   value={prefsForm.sleep_schedule} 
                   onChange={(v) => setPrefsForm({...prefsForm, sleep_schedule: v})}
                   options={[
+                    { value: '', label: 'Select Schedule...' },
                     { value: 'flexible', label: 'Flexible / Varies' },
                     { value: 'early', label: 'Early Bird (Sleep early, wake early)' },
                     { value: 'late', label: 'Night Owl (Sleep late, wake late)' }
@@ -230,6 +231,7 @@ export default function ProfileContent({
                   value={prefsForm.diet} 
                   onChange={(v) => setPrefsForm({...prefsForm, diet: v})}
                   options={[
+                    { value: '', label: 'Select Diet...' },
                     { value: 'non_veg', label: 'No specific restrictions / Non-Veg' },
                     { value: 'vegetarian', label: 'Vegetarian' },
                     { value: 'halal_strict', label: 'Strict Halal / Religious restrictions' }
@@ -245,6 +247,7 @@ export default function ProfileContent({
                   value={prefsForm.guest_policy} 
                   onChange={(v) => setPrefsForm({...prefsForm, guest_policy: v})}
                   options={[
+                    { value: '', label: 'Select Policy...' },
                     { value: 'allowed', label: 'Flexible (Frequent guests fine)' },
                     { value: 'restricted', label: 'Restricted (Weekends Only)' },
                     { value: 'not_allowed', label: 'Not Allowed' }
@@ -257,6 +260,7 @@ export default function ProfileContent({
                   value={prefsForm.noise_tolerance} 
                   onChange={(v) => setPrefsForm({...prefsForm, noise_tolerance: v})}
                   options={[
+                    { value: '', label: 'Select Tolerance...' },
                     { value: 'moderate', label: 'Moderate (Normal activity fine)' },
                     { value: 'quiet', label: 'Quiet (Need pin-drop silence)' },
                     { value: 'noisy', label: 'Lively (Music, chatting is fine)' }
@@ -272,6 +276,7 @@ export default function ProfileContent({
                   value={prefsForm.preferred_gender} 
                   onChange={(v) => setPrefsForm({...prefsForm, preferred_gender: v as any})}
                   options={[
+                    { value: '', label: 'Select Gender...' },
                     { value: 'any', label: 'Any Gender' },
                     { value: 'male', label: 'Male Only' },
                     { value: 'female', label: 'Female Only' }
