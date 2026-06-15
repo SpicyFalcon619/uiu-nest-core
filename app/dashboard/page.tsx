@@ -40,7 +40,8 @@ export default async function DashboardPage() {
     { data: seekRespSent },
     { data: seekRespRecv },
     { data: hasPreferences },
-    { data: verifStatus }
+    { data: verifStatus },
+    { data: userNotifications }
   ] = await Promise.all([
     supabase.from('listings').select('*, costs:utility_costs(*)').eq('user_id', userId),
     supabase.from('items').select('*').eq('seller_id', userId),
@@ -53,7 +54,8 @@ export default async function DashboardPage() {
     supabase.from('seeking_responses').select('*, owner:profiles!seeking_responses_post_owner_id_fkey(name, email)').eq('responder_id', userId),
     supabase.from('seeking_responses').select('*, responder:profiles!seeking_responses_responder_id_fkey(name, email), post:seeking_posts!inner(user_id)').eq('post.user_id', userId),
     supabase.from('user_preferences').select('pref_id').eq('user_id', userId).maybeSingle(),
-    supabase.from('verifications').select('status').eq('user_id', userId).order('submitted_at', { ascending: false }).limit(1).maybeSingle()
+    supabase.from('verifications').select('status').eq('user_id', userId).order('submitted_at', { ascending: false }).limit(1).maybeSingle(),
+    supabase.from('notifications').select('*').eq('user_id', userId).order('created_at', { ascending: false })
   ]);
 
   // Offers received needs a different query or mapping since supabase doesn't support complex joins in a single query easily like that.
@@ -125,7 +127,8 @@ export default async function DashboardPage() {
       responder_email: r.responder?.email
     })) as SeekingResponse[],
     hasPreferences: !!hasPreferences,
-    verifStatus: verifStatus ? verifStatus.status : 'none'
+    verifStatus: verifStatus?.status || 'none',
+    notifications: userNotifications || []
   };
 
   return <DashboardContent data={dashData} user={profile as Profile} />;

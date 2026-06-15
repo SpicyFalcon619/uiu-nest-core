@@ -33,6 +33,26 @@ export async function createAdminNotification(type: string, message: string, lin
   }
 }
 
+// Internal helper to create a notification for a specific user
+export async function createUserNotification(userId: string, type: string, message: string, link: string) {
+  try {
+    const adminSupabase = createAdminClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+
+    await adminSupabase.from('notifications').insert({
+      user_id: userId,
+      type,
+      message,
+      link,
+      is_read: false
+    });
+  } catch (error) {
+    console.error("Failed to create user notification:", error);
+  }
+}
+
 // User action to mark a notification as read
 export async function markNotificationAsRead(notifId: number) {
   try {

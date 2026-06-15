@@ -9,14 +9,18 @@ import CustomSelect from '@/components/CustomSelect';
 import ListingCard from '@/components/ListingCard';
 import VerificationModal from '@/components/modals/VerificationModal';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { markNotificationAsRead } from '@/app/actions/notifications';
 
 export default function DashboardContent({ data, user }: { data: DashboardData; user: Profile }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'listings');
   const [isVerifModalOpen, setIsVerifModalOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [notifications, setNotifications] = useState<any[]>(data.notifications || []);
 
   useEffect(() => {
+    setMounted(true);
     const tab = searchParams.get('tab');
     if (tab) setActiveTab(tab);
   }, [searchParams]);
@@ -40,6 +44,11 @@ export default function DashboardContent({ data, user }: { data: DashboardData; 
   const switchTab = (tab: string) => {
     setActiveTab(tab);
     router.push(`/dashboard?tab=${tab}`);
+  };
+
+  const handleMarkRead = async (notifId: number) => {
+    setNotifications(prev => prev.map(n => n.notif_id === notifId ? { ...n, is_read: true } : n));
+    await markNotificationAsRead(notifId);
   };
 
   return (
@@ -88,6 +97,12 @@ export default function DashboardContent({ data, user }: { data: DashboardData; 
             </div>
           </div>
         )}
+        <div className="stat-card" onClick={() => switchTab('notifications')} style={{ cursor: 'pointer' }}>
+          <div className="stat-label">Notifications</div>
+          <div className="stat-value" style={{ color: notifications.filter(n => !n.is_read).length > 0 ? 'var(--gold)' : 'inherit' }}>
+            {notifications.filter(n => !n.is_read).length} Unread
+          </div>
+        </div>
       </div>
 
       <div className="dashboard-layout">
@@ -123,6 +138,16 @@ export default function DashboardContent({ data, user }: { data: DashboardData; 
           </div>
           <div className={`dashboard-nav-item ${activeTab === 'applications' ? 'active' : ''}`} onClick={() => switchTab('applications')}>
             <FileText size={18} /> Housing Applications
+          </div>
+          <div className={`dashboard-nav-item ${activeTab === 'notifications' ? 'active' : ''}`} onClick={() => switchTab('notifications')}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Clock size={18} /> Notifications</span>
+              {mounted && notifications.filter(n => !n.is_read).length > 0 && (
+                <span style={{ backgroundColor: 'var(--danger)', color: 'white', borderRadius: '10px', padding: '2px 6px', fontSize: '10px', fontWeight: 'bold' }}>
+                  {notifications.filter(n => !n.is_read).length}
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
@@ -506,6 +531,67 @@ export default function DashboardContent({ data, user }: { data: DashboardData; 
               </div>
             )}
           </div>
+        </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'notifications' && (
+        <div className="tab-pane active" id="tab-notifications">
+          <h2 style={{ marginTop: 0, color: 'var(--navy)' }}>Your Notifications</h2>
+          {notifications.length === 0 ? (
+            <p className="text-gray text-center" style={{ padding: '24px 0' }}>You have no notifications.</p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {notifications.map(n => {
+                let badgeColor = 'var(--gray)';
+                if (n.type === 'verification') badgeColor = 'var(--warning)';
+                if (n.type === 'complaint') badgeColor = 'var(--danger)';
+                if (n.type === 'listing') badgeColor = 'var(--success)';
+
+                return (
+                  <div key={n.notif_id} style={{ 
+                    padding: '16px', 
+                    borderRadius: 'var(--radius)', 
+                    border: '1px solid var(--border)',
+                    backgroundColor: n.is_read ? 'white' : 'var(--surface-hover)',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
+                  }}>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                        <span style={{ 
+                          backgroundColor: badgeColor, 
+                          color: 'white', 
+                          fontSize: '11px', 
+                          padding: '2px 8px', 
+                          borderRadius: '12px',
+                          textTransform: 'uppercase',
+                          fontWeight: 600
+                        }}>
+                          {n.type}
+                        </span>
+                        <span style={{ fontSize: '12px', color: 'var(--gray)' }}>
+                          {mounted ? new Date(n.created_at).toLocaleString() : ''}
+                        </span>
+                      </div>
+                      <p style={{ margin: '8px 0 0 0', fontWeight: n.is_read ? 400 : 600 }}>{n.message}</p>
+                    </div>
+                    
+                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                      {n.link && (
+                        <Link href={n.link} className="btn btn-outline btn-sm" onClick={() => handleMarkRead(n.notif_id)}>View Details</Link>
+                      )}
+                      {!n.is_read && !n.link && (
+                        <button className="btn btn-outline btn-sm" onClick={() => handleMarkRead(n.notif_id)}>Mark Read</button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
         </div>

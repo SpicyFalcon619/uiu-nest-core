@@ -2,6 +2,7 @@
 
 import { createClient as createServerClient } from '@/lib/supabase/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
+import { createUserNotification } from './notifications';
 
 // Helper to get admin client but verify authorization first
 async function getAdminSupabase() {
@@ -28,12 +29,23 @@ async function getAdminSupabase() {
 export async function adminUpdateVerification(id: number, status: 'approved' | 'rejected') {
   try {
     const adminSupabase = await getAdminSupabase();
-    const { error } = await adminSupabase
+    const { data: verif, error } = await adminSupabase
       .from('verifications')
       .update({ status })
-      .eq('verification_id', id);
+      .eq('verification_id', id)
+      .select('user_id')
+      .single();
 
     if (error) throw error;
+
+    // Notify user
+    await createUserNotification(
+      verif.user_id,
+      'verification',
+      `Your identity verification has been ${status}.`,
+      '/dashboard'
+    );
+
     return { success: true };
   } catch (error: any) {
     return { success: false, error: error.message };
@@ -43,12 +55,23 @@ export async function adminUpdateVerification(id: number, status: 'approved' | '
 export async function adminUpdateComplaint(id: number, status: 'resolved' | 'dismissed') {
   try {
     const adminSupabase = await getAdminSupabase();
-    const { error } = await adminSupabase
+    const { data: complaint, error } = await adminSupabase
       .from('complaints')
-      .update({ status })
-      .eq('complaint_id', id);
+      .update({ status, resolved_at: status === 'resolved' ? new Date().toISOString() : null })
+      .eq('complaint_id', id)
+      .select('complainant_id')
+      .single();
 
     if (error) throw error;
+
+    // Notify complainant
+    await createUserNotification(
+      complaint.complainant_id,
+      'complaint',
+      `Your complaint has been marked as ${status}.`,
+      '/dashboard'
+    );
+
     return { success: true };
   } catch (error: any) {
     return { success: false, error: error.message };
