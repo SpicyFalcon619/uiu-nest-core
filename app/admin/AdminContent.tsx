@@ -30,13 +30,15 @@ export default function AdminContent({
   const searchParams = useSearchParams();
   const router = useRouter();
   
+  const [mounted, setMounted] = useState(false);
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'overview');
   const [verifications, setVerifications] = useState(initialVerifications);
   const [complaints, setComplaints] = useState(initialComplaints);
   const [notifications, setNotifications] = useState(initialNotifications || []);
 
-  // Sync tab state with URL changes
+  // Sync tab state with URL changes and handle mounting
   useEffect(() => {
+    setMounted(true);
     const tab = searchParams.get('tab');
     if (tab) setActiveTab(tab);
   }, [searchParams]);
@@ -231,7 +233,7 @@ export default function AdminContent({
                         <span style={{ fontSize: '12px', color: 'var(--gray)' }}>{(v as any).userEmail}</span>
                       </td>
                       <td>{v.nid_type}</td>
-                      <td>{new Date(v.submitted_at).toLocaleDateString()}</td>
+                      <td>{mounted ? new Date(v.submitted_at).toLocaleDateString() : ''}</td>
                       <td><span dangerouslySetInnerHTML={{ __html: statusBadge(v.status) }} /></td>
                       <td>
                         <button className="btn btn-outline btn-sm" onClick={() => openDocument(v.document_path, v.nid_type)}>
@@ -339,7 +341,9 @@ export default function AdminContent({
                         }}>
                           {n.type}
                         </span>
-                        <span style={{ fontSize: '12px', color: 'var(--gray)' }}>{new Date(n.created_at).toLocaleString()}</span>
+                        <span style={{ fontSize: '12px', color: 'var(--gray)' }}>
+                          {mounted ? new Date(n.created_at).toLocaleString() : ''}
+                        </span>
                       </div>
                       <p style={{ margin: '8px 0 0 0', fontWeight: n.is_read ? 400 : 600 }}>{n.message}</p>
                     </div>
