@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { PlusCircle } from 'lucide-react';
 import type { SeekingPost, Zone } from '@/types';
 import SeekCard from '@/components/SeekCard';
@@ -21,6 +22,7 @@ export default function SeekingContent({
   const [filterZone, setFilterZone] = useState('all');
   const [filterGender, setFilterGender] = useState('all');
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  const router = useRouter();
 
   const filteredPosts = useMemo(() => {
     let result = posts.filter(p => p.status === 'active');
@@ -110,7 +112,7 @@ export default function SeekingContent({
         isOpen={createModalOpen} 
         onClose={() => setCreateModalOpen(false)} 
         zones={zones}
-        onSuccess={() => window.location.reload()}
+        onSuccess={() => router.refresh()}
       />
     </div>
   );

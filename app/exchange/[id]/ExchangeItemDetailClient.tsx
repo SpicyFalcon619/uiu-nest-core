@@ -5,7 +5,6 @@ import Link from 'next/link';
 import OfferModal from '@/components/modals/OfferModal';
 import { toast } from 'sonner';
 import { createClient } from '@/lib/supabase/client';
-import { useRouter } from 'next/navigation';
 
 interface ExchangeItemDetailClientProps {
   itemId: number;
@@ -19,7 +18,7 @@ interface ExchangeItemDetailClientProps {
 export default function ExchangeItemDetailClient({ itemId, itemTitle, isLoggedIn, isOwner, status, askingPrice }: ExchangeItemDetailClientProps) {
   const [offerModalOpen, setOfferModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
+  const [localStatus, setLocalStatus] = useState(status);
 
   const handleMarkSold = async () => {
     if (!confirm('Are you sure you want to mark this item as sold?')) return;
@@ -36,7 +35,7 @@ export default function ExchangeItemDetailClient({ itemId, itemTitle, isLoggedIn
       toast.error(error.message);
     } else {
       toast.success('Item marked as sold!');
-      router.refresh();
+      setLocalStatus('sold');
     }
     setLoading(false);
   };
@@ -56,15 +55,15 @@ export default function ExchangeItemDetailClient({ itemId, itemTitle, isLoggedIn
       toast.error(error.message);
     } else {
       toast.success('Item withdrawn successfully.');
-      router.refresh();
+      setLocalStatus('withdrawn');
     }
     setLoading(false);
   };
 
-  if (status !== 'available') {
+  if (localStatus !== 'available') {
     return (
       <div style={{ padding: '16px', backgroundColor: '#f1f5f9', borderRadius: '8px', textAlign: 'center', fontWeight: 500 }}>
-        This item is currently {status}.
+        This item is currently {localStatus}.
       </div>
     );
   }

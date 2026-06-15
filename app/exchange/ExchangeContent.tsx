@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react';
 import type { Item, Zone } from '@/types';
 import ExchangeItemCard from '@/components/ExchangeItemCard';
+import { useRouter } from 'next/navigation';
 import SellItemModal from '@/components/modals/SellItemModal';
 import { fmt } from '@/lib/utils';
 import { ShoppingBag, Search, Filter } from 'lucide-react';
@@ -23,6 +24,7 @@ export default function ExchangeContent({
   const [maxPrice, setMaxPrice] = useState(20000);
   const [sort, setSort] = useState('newest');
   const [sellModalOpen, setSellModalOpen] = useState(false);
+  const router = useRouter();
 
   const filteredItems = useMemo(() => {
     let result = items.filter(it => {
@@ -138,7 +140,7 @@ export default function ExchangeContent({
         isOpen={sellModalOpen} 
         onClose={() => setSellModalOpen(false)} 
         zones={zones}
-        onSuccess={() => { window.location.reload(); }} // Simple reload to refresh data
+        onSuccess={() => { router.refresh(); }}
       />
     </div>
   );
