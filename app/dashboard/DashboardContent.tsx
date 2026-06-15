@@ -80,7 +80,7 @@ export default function DashboardContent({ data, user }: { data: DashboardData; 
           <div className="stat-value">{myListings.length}</div>
         </div>
         {user.role === 'student' && (
-          <div className="stat-card" onClick={() => switchTab('wishlist')} style={{ cursor: 'pointer' }}>
+          <div className="stat-card" onClick={() => switchTab('watch')} style={{ cursor: 'pointer' }}>
             <div className="stat-label">Watchlisted</div>
             <div className="stat-value">{watched.length}</div>
           </div>
@@ -351,6 +351,30 @@ export default function DashboardContent({ data, user }: { data: DashboardData; 
                 </table>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'preferences' && user.role === 'student' && (
+        <div id="tab-preferences">
+          <div className="card">
+            <h3 style={{ marginTop: 0, color: 'var(--navy)' }}>Compatibility Preferences</h3>
+            <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+              <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '64px', height: '64px', borderRadius: '50%', backgroundColor: hasPreferences ? 'var(--success-light)' : 'var(--warning-light)', color: hasPreferences ? 'var(--success)' : 'var(--warning)', marginBottom: '16px' }}>
+                <Settings size={32} />
+              </div>
+              <h4 style={{ margin: '0 0 12px 0', fontSize: '18px' }}>
+                {hasPreferences ? 'Your Preferences are Set' : 'Setup Required'}
+              </h4>
+              <p style={{ color: 'var(--gray)', maxWidth: '400px', margin: '0 auto 24px auto', lineHeight: 1.5 }}>
+                {hasPreferences 
+                  ? 'Your roommate matching preferences are active. This helps us find the best roommates for you.' 
+                  : 'You haven\'t set up your roommate matching preferences yet. Set them up to see compatibility scores with other students.'}
+              </p>
+              <Link href="/profile" className="btn btn-primary">
+                Manage Preferences in Profile
+              </Link>
+            </div>
           </div>
         </div>
       )}
