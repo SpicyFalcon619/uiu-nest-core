@@ -30,9 +30,9 @@ export default function VerificationModal({ isOpen, onClose, userId, onSuccess }
     setLoading(true);
 
     try {
-      // 1. Upload to uiunest bucket -> verifications folder
+      // 1. Upload to uiunest bucket -> [userId]/verifications folder (required for Storage RLS!)
       const ext = file.name.split('.').pop();
-      const filePath = `verifications/${userId}/${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
+      const filePath = `${userId}/verifications/${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
 
       const { error: uploadError } = await supabase.storage
         .from('uiunest')
