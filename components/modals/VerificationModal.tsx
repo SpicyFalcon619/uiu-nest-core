@@ -29,43 +29,24 @@ export default function VerificationModal({ isOpen, onClose, userId, onSuccess }
     setLoading(true);
 
     try {
-      // Convert file to base64 to send to server action
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
+      const data = new FormData();
+      data.append('userId', userId);
+      data.append('nidType', formData.nid_type);
+      data.append('description', formData.description);
+      data.append('file', file);
       
-      reader.onload = async () => {
-        try {
-          const base64Str = (reader.result as string).split(',')[1];
-          
-          const result = await uploadVerificationDocument(
-            userId,
-            formData.nid_type,
-            formData.description,
-            file.name,
-            base64Str,
-            file.type
-          );
+      const result = await uploadVerificationDocument(data);
 
-          if (!result.success) {
-            throw new Error(result.error);
-          }
+      if (!result.success) {
+        throw new Error(result.error);
+      }
 
-          toast.success('Verification submitted! An admin will review it shortly.');
-          onSuccess();
-          onClose();
-        } catch (error: any) {
-          toast.error(error.message || 'Failed to submit verification');
-        } finally {
-          setLoading(false);
-        }
-      };
-      
-      reader.onerror = () => {
-        toast.error('Failed to read file');
-        setLoading(false);
-      };
+      toast.success('Verification submitted! An admin will review it shortly.');
+      onSuccess();
+      onClose();
     } catch (error: any) {
-      toast.error(error.message || 'Failed to prepare verification');
+      toast.error(error.message || 'Failed to submit verification');
+    } finally {
       setLoading(false);
     }
   };
