@@ -7,6 +7,7 @@ import type { Profile, UserPreferences } from '@/types';
 import { updateProfileSchema, updatePreferencesSchema } from '@/lib/schemas';
 import { User, Settings, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
+import CustomSelect from '@/components/CustomSelect';
 
 export default function ProfileContent({ 
   initialProfile, 
@@ -199,60 +200,70 @@ export default function ProfileContent({
             <div className="grid-2">
               <div className="form-group">
                 <label>Sleep Schedule</label>
-                <div className="custom-select-wrapper">
-                  <select value={prefsForm.sleep_schedule} onChange={e => setPrefsForm({...prefsForm, sleep_schedule: e.target.value})}>
-                    <option value="flexible">Flexible / Varies</option>
-                    <option value="early_bird">Early Bird (Sleep early, wake early)</option>
-                    <option value="night_owl">Night Owl (Sleep late, wake late)</option>
-                  </select>
-                </div>
+                <CustomSelect 
+                  value={prefsForm.sleep_schedule} 
+                  onChange={(v) => setPrefsForm({...prefsForm, sleep_schedule: v})}
+                  options={[
+                    { value: 'flexible', label: 'Flexible / Varies' },
+                    { value: 'early_bird', label: 'Early Bird (Sleep early, wake early)' },
+                    { value: 'night_owl', label: 'Night Owl (Sleep late, wake late)' }
+                  ]}
+                />
               </div>
               <div className="form-group">
                 <label>Dietary Habit</label>
-                <div className="custom-select-wrapper">
-                  <select value={prefsForm.diet} onChange={e => setPrefsForm({...prefsForm, diet: e.target.value})}>
-                    <option value="any">No specific restrictions</option>
-                    <option value="non_veg">Non-Vegetarian</option>
-                    <option value="veg">Vegetarian</option>
-                    <option value="halal_strict">Strict Halal / Religious restrictions</option>
-                  </select>
-                </div>
+                <CustomSelect 
+                  value={prefsForm.diet} 
+                  onChange={(v) => setPrefsForm({...prefsForm, diet: v})}
+                  options={[
+                    { value: 'any', label: 'No specific restrictions' },
+                    { value: 'non_veg', label: 'Non-Vegetarian' },
+                    { value: 'veg', label: 'Vegetarian' },
+                    { value: 'halal_strict', label: 'Strict Halal / Religious restrictions' }
+                  ]}
+                />
               </div>
             </div>
 
             <div className="grid-2">
               <div className="form-group">
                 <label>Guest Policy</label>
-                <div className="custom-select-wrapper">
-                  <select value={prefsForm.guest_policy} onChange={e => setPrefsForm({...prefsForm, guest_policy: e.target.value})}>
-                    <option value="flexible">Flexible (Frequent guests fine)</option>
-                    <option value="weekends_only">Weekends Only</option>
-                    <option value="no_guests">No Guests allowed</option>
-                  </select>
-                </div>
+                <CustomSelect 
+                  value={prefsForm.guest_policy} 
+                  onChange={(v) => setPrefsForm({...prefsForm, guest_policy: v})}
+                  options={[
+                    { value: 'flexible', label: 'Flexible (Frequent guests fine)' },
+                    { value: 'weekends_only', label: 'Weekends Only' },
+                    { value: 'no_guests', label: 'No Guests allowed' }
+                  ]}
+                />
               </div>
               <div className="form-group">
                 <label>Noise Tolerance</label>
-                <div className="custom-select-wrapper">
-                  <select value={prefsForm.noise_tolerance} onChange={e => setPrefsForm({...prefsForm, noise_tolerance: e.target.value})}>
-                    <option value="moderate">Moderate (Normal activity fine)</option>
-                    <option value="quiet">Quiet (Need pin-drop silence)</option>
-                    <option value="lively">Lively (Music, chatting is fine)</option>
-                  </select>
-                </div>
+                <CustomSelect 
+                  value={prefsForm.noise_tolerance} 
+                  onChange={(v) => setPrefsForm({...prefsForm, noise_tolerance: v})}
+                  options={[
+                    { value: 'moderate', label: 'Moderate (Normal activity fine)' },
+                    { value: 'quiet', label: 'Quiet (Need pin-drop silence)' },
+                    { value: 'lively', label: 'Lively (Music, chatting is fine)' }
+                  ]}
+                />
               </div>
             </div>
 
             <div className="grid-2">
               <div className="form-group">
                 <label>Flatmate Gender Pref.</label>
-                <div className="custom-select-wrapper">
-                  <select value={prefsForm.preferred_gender} onChange={e => setPrefsForm({...prefsForm, preferred_gender: e.target.value as any})}>
-                    <option value="any">Any Gender</option>
-                    <option value="male">Male Only</option>
-                    <option value="female">Female Only</option>
-                  </select>
-                </div>
+                <CustomSelect 
+                  value={prefsForm.preferred_gender} 
+                  onChange={(v) => setPrefsForm({...prefsForm, preferred_gender: v as any})}
+                  options={[
+                    { value: 'any', label: 'Any Gender' },
+                    { value: 'male', label: 'Male Only' },
+                    { value: 'female', label: 'Female Only' }
+                  ]}
+                />
               </div>
               <div className="form-group">
                 <label>Daily Study Hours (Avg)</label>
