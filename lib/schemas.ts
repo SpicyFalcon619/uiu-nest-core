@@ -67,14 +67,14 @@ export const updateProfileSchema = z.object({
 });
 
 export const updatePreferencesSchema = z.object({
-  sleep_schedule: z.enum(['early_bird', 'night_owl', 'flexible']),
+  sleep_schedule: z.enum(['early', 'late', 'flexible']),
   study_hours: z.number().min(0).max(24),
-  diet: z.enum(['non_veg', 'veg', 'halal_strict', 'any']),
-  guest_policy: z.enum(['no_guests', 'weekends_only', 'flexible']),
+  diet: z.enum(['non_veg', 'vegetarian', 'halal_strict']),
+  guest_policy: z.enum(['not_allowed', 'restricted', 'allowed']),
   smoking_tolerance: z.boolean(),
   preferred_gender: z.enum(['male', 'female', 'any']),
   cleanliness_score: z.number().min(1).max(5),
-  noise_tolerance: z.enum(['quiet', 'moderate', 'lively'])
+  noise_tolerance: z.enum(['quiet', 'moderate', 'noisy'])
 });
 
 export const createBillSchema = z.object({
