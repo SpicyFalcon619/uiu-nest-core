@@ -23,6 +23,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           rel="stylesheet"
           href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
         />
+        <script dangerouslySetInnerHTML={{ __html: `
+          try {
+            if (localStorage.getItem('userRole') === 'landlord') {
+              document.documentElement.classList.add('is-landlord');
+            }
+          } catch (e) {}
+        `}} />
       </head>
       <body className={isHomePage ? 'landing-page' : ''}>
         <Toaster position="bottom-right" richColors />

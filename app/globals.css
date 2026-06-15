@@ -1725,3 +1725,9 @@ body:has(.dash-shell) {
   .hero-search-field .hs-label { text-align: left !important; width: 100%; }
   .hero-search-field .custom-select-wrapper::after { display: none !important; }
 }
+
+/* Hide seeking link for landlords to prevent hydration mismatch flashes */
+html.is-landlord .seeking-nav-link {
+  display: none !important;
+}
+

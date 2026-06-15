@@ -104,8 +104,7 @@ export default function Navbar() {
 
   const initials = user?.name ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'US';
 
-  const assumedRole = typeof window !== 'undefined' ? localStorage.getItem('userRole') : null;
-  const currentRole = user?.role || assumedRole;
+  const currentRole = user?.role;
 
   const navLinks = [
     { href: '/', label: 'Home', icon: <Home size={18} className="nav-icon" /> },
@@ -149,7 +148,7 @@ export default function Navbar() {
                   </Link>
                 )}
                 
-                <Link key={link.href} href={link.href} className={getLinkClass(link.href)} onClick={() => setMobileMenuOpen(false)}>
+                <Link key={link.href} href={link.href} className={`${getLinkClass(link.href)} ${link.href === '/seeking' ? 'seeking-nav-link' : ''}`} onClick={() => setMobileMenuOpen(false)}>
                   {link.icon}
                   <span className="nav-label">{link.label}</span>
                 </Link>
