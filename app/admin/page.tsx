@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { redirect } from 'next/navigation';
 import AdminContent from './AdminContent';
-import type { AdminStats, Complaint, Verification } from '@/types';
+import type { AdminStats, Complaint, Verification, Notification } from '@/types';
 
 export const metadata = {
   title: 'Admin Dashboard - UIUNest',
@@ -70,6 +70,14 @@ export default async function AdminPage() {
   const { data: allUsers } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
   const { data: allListingsData } = await supabase.from('listings').select('*, zone:zones(zone_name), owner:profiles!listings_user_id_fkey(name, email)').order('created_at', { ascending: false });
 
+  // Fetch Notifications
+  const { data: notificationsRes } = await supabase
+    .from('notifications')
+    .select('*')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false });
+  const notifications: Notification[] = notificationsRes || [];
+
   const allListings = (allListingsData || []).map((l: any) => ({
     ...l,
     zone: l.zone?.zone_name,
@@ -126,6 +134,7 @@ export default async function AdminPage() {
         initialComplaints={complaints} 
         allUsers={allUsers || []}
         allListings={allListings}
+        initialNotifications={notifications}
       />
     </div>
   );

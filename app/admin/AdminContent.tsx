@@ -1,30 +1,70 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import type { AdminStats, Complaint, Verification } from '@/types';
+import { useSearchParams, useRouter } from 'next/navigation';
+import type { AdminStats, Complaint, Verification, Notification } from '@/types';
 import { ShieldAlert, UserCheck, TrendingUp, Home, Users } from 'lucide-react';
 import { statusBadge } from '@/lib/utils';
 import RentChart from './RentChart';
 import DemandChart from './DemandChart';
 import { adminUpdateVerification, adminUpdateComplaint, adminUpdateUserStatus, adminDeleteListing } from '@/app/actions/admin';
+import { markNotificationAsRead } from '@/app/actions/notifications';
+import DocumentViewerModal from '@/components/modals/DocumentViewerModal';
 
 export default function AdminContent({ 
   stats, 
   initialVerifications, 
   initialComplaints,
   allUsers,
-  allListings
+  allListings,
+  initialNotifications
 }: { 
   stats: AdminStats;
   initialVerifications: Verification[];
   initialComplaints: Complaint[];
   allUsers: any[];
   allListings: any[];
+  initialNotifications?: Notification[];
 }) {
-  const [activeTab, setActiveTab] = useState('overview');
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'overview');
   const [verifications, setVerifications] = useState(initialVerifications);
   const [complaints, setComplaints] = useState(initialComplaints);
+  const [notifications, setNotifications] = useState(initialNotifications || []);
+
+  // Sync tab state with URL changes
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab) setActiveTab(tab);
+  }, [searchParams]);
+
+  // Helper to change tab and update URL
+  const changeTab = (tab: string) => {
+    setActiveTab(tab);
+    router.push(`/admin?tab=${tab}`);
+  };
+
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [viewerUrl, setViewerUrl] = useState<string | null>(null);
+  const [viewerType, setViewerType] = useState<string>('Document');
+
+  const openDocument = (url: string, type: string) => {
+    setViewerUrl(url);
+    setViewerType(type);
+    setViewerOpen(true);
+  };
+
+  const handleMarkRead = async (notifId: number) => {
+    const result = await markNotificationAsRead(notifId);
+    if (!result.success) {
+      toast.error(result.error || 'Failed to mark as read');
+    } else {
+      setNotifications(notifications.map(n => n.notif_id === notifId ? { ...n, is_read: true } : n));
+    }
+  };
 
   const handleVerifAction = async (id: number, status: 'approved' | 'rejected') => {
     const result = await adminUpdateVerification(id, status);
@@ -69,10 +109,18 @@ export default function AdminContent({
   return (
     <div>
       <div className="tabs" style={{ marginBottom: '24px' }}>
-        <div className={`tab ${activeTab === 'overview' ? 'active' : ''}`} onClick={() => setActiveTab('overview')}>Overview</div>
-        <div className={`tab ${activeTab === 'users' ? 'active' : ''}`} onClick={() => setActiveTab('users')}>Users & Listings</div>
-        <div className={`tab ${activeTab === 'verifications' ? 'active' : ''}`} onClick={() => setActiveTab('verifications')}>ID Verifications</div>
-        <div className={`tab ${activeTab === 'complaints' ? 'active' : ''}`} onClick={() => setActiveTab('complaints')}>Complaints</div>
+        <div className={`tab ${activeTab === 'overview' ? 'active' : ''}`} onClick={() => changeTab('overview')}>Overview</div>
+        <div className={`tab ${activeTab === 'users' ? 'active' : ''}`} onClick={() => changeTab('users')}>Users & Listings</div>
+        <div className={`tab ${activeTab === 'verifications' ? 'active' : ''}`} onClick={() => changeTab('verifications')}>ID Verifications</div>
+        <div className={`tab ${activeTab === 'complaints' ? 'active' : ''}`} onClick={() => changeTab('complaints')}>Complaints</div>
+        <div className={`tab ${activeTab === 'notifications' ? 'active' : ''}`} onClick={() => changeTab('notifications')}>
+          Notifications
+          {notifications.filter(n => !n.is_read).length > 0 && (
+            <span style={{ background: 'var(--danger)', color: 'white', fontSize: '10px', padding: '2px 6px', borderRadius: '10px', marginLeft: '6px' }}>
+              {notifications.filter(n => !n.is_read).length}
+            </span>
+          )}
+        </div>
       </div>
 
       {activeTab === 'overview' && (
@@ -174,7 +222,7 @@ export default function AdminContent({
           ) : (
             <div className="table-responsive">
               <table className="table">
-                <thead><tr><th>User</th><th>Document Type</th><th>Date</th><th>Status</th><th>Actions</th></tr></thead>
+                <thead><tr><th>User</th><th>Document Type</th><th>Date</th><th>Status</th><th>Document</th><th>Actions</th></tr></thead>
                 <tbody>
                   {verifications.map(v => (
                     <tr key={v.verification_id}>
@@ -185,6 +233,11 @@ export default function AdminContent({
                       <td>{v.nid_type}</td>
                       <td>{new Date(v.submitted_at).toLocaleDateString()}</td>
                       <td><span dangerouslySetInnerHTML={{ __html: statusBadge(v.status) }} /></td>
+                      <td>
+                        <button className="btn btn-outline btn-sm" onClick={() => openDocument(v.document_path, v.nid_type)}>
+                          View Document
+                        </button>
+                      </td>
                       <td>
                         {v.status === 'pending' ? (
                           <div style={{ display: 'flex', gap: '8px' }}>
@@ -201,6 +254,13 @@ export default function AdminContent({
               </table>
             </div>
           )}
+          
+          <DocumentViewerModal 
+            isOpen={viewerOpen} 
+            onClose={() => setViewerOpen(false)} 
+            documentUrl={viewerUrl} 
+            documentType={viewerType} 
+          />
         </div>
       )}
 
@@ -238,6 +298,63 @@ export default function AdminContent({
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'notifications' && (
+        <div className="card" id="tab-notifications">
+          <h2 style={{ marginTop: 0, color: 'var(--navy)' }}>System Notifications</h2>
+          {notifications.length === 0 ? (
+            <p className="text-gray text-center" style={{ padding: '24px 0' }}>You have no notifications.</p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {notifications.map(n => {
+                let badgeColor = 'var(--gray)';
+                if (n.type === 'verification') badgeColor = 'var(--warning)';
+                if (n.type === 'complaint') badgeColor = 'var(--danger)';
+                if (n.type === 'listing') badgeColor = 'var(--success)';
+
+                return (
+                  <div key={n.notif_id} style={{ 
+                    padding: '16px', 
+                    borderRadius: 'var(--radius)', 
+                    border: '1px solid var(--border)',
+                    backgroundColor: n.is_read ? 'white' : 'var(--surface-hover)',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
+                  }}>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                        <span style={{ 
+                          backgroundColor: badgeColor, 
+                          color: 'white', 
+                          fontSize: '11px', 
+                          padding: '2px 8px', 
+                          borderRadius: '12px',
+                          textTransform: 'uppercase',
+                          fontWeight: 600
+                        }}>
+                          {n.type}
+                        </span>
+                        <span style={{ fontSize: '12px', color: 'var(--gray)' }}>{new Date(n.created_at).toLocaleString()}</span>
+                      </div>
+                      <p style={{ margin: '8px 0 0 0', fontWeight: n.is_read ? 400 : 600 }}>{n.message}</p>
+                    </div>
+                    
+                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                      {n.link && (
+                        <a href={n.link} className="btn btn-outline btn-sm" onClick={() => handleMarkRead(n.notif_id)}>View Details</a>
+                      )}
+                      {!n.is_read && (
+                        <button className="btn btn-primary btn-sm" onClick={() => handleMarkRead(n.notif_id)}>Mark Read</button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

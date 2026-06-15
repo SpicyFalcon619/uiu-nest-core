@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import Modal from './Modal';
 import CustomSelect from '@/components/CustomSelect';
+import { createAdminNotification } from '@/app/actions/notifications';
 
 interface ComplaintModalProps {
   isOpen: boolean;
@@ -48,6 +49,11 @@ export default function ComplaintModal({ isOpen, onClose, listingId, againstUser
     if (submitError) {
       setError(submitError.message);
     } else {
+      await createAdminNotification(
+        'complaint',
+        `New complaint filed against ${againstUserId ? 'user' : 'listing'}.`,
+        `/admin?tab=complaints`
+      );
       setCategory('other');
       setDescription('');
       if (onSuccess) onSuccess();

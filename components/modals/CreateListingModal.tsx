@@ -7,6 +7,7 @@ import Modal from './Modal';
 import type { Zone } from '@/types';
 import CustomSelect from '@/components/CustomSelect';
 import dynamic from 'next/dynamic';
+import { createAdminNotification } from '@/app/actions/notifications';
 
 const MapPicker = dynamic(() => import('@/components/MapPicker'), { ssr: false, loading: () => <div style={{height: '300px', background: '#f0f0f0', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>Loading map...</div> });
 
@@ -227,6 +228,13 @@ export default function CreateListingModal({ isOpen, onClose, onSuccess }: Creat
         noise: formData.noise,
         smoking: formData.smoking ? 1 : 0
       }, { onConflict: 'user_id' });
+
+      // Trigger admin notification
+      await createAdminNotification(
+        'listing',
+        `New property listing created: ${formData.title}`,
+        `/admin?tab=overview`
+      );
 
       toast.success('Listing published successfully!');
       if (onSuccess) onSuccess();

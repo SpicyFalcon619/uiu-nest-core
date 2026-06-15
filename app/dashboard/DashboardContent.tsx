@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { CheckCircle, Clock, XCircle, UserCheck, Trash2, Building2, ShoppingBag, Search, Heart, List, FileText } from 'lucide-react';
 import type { DashboardData, Profile } from '@/types';
@@ -8,12 +8,18 @@ import { fmt, conditionLabel, conditionColor, statusBadge, propertyTypeLabel } f
 import CustomSelect from '@/components/CustomSelect';
 import ListingCard from '@/components/ListingCard';
 import VerificationModal from '@/components/modals/VerificationModal';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 export default function DashboardContent({ data, user }: { data: DashboardData; user: Profile }) {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState('listings');
+  const searchParams = useSearchParams();
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'listings');
   const [isVerifModalOpen, setIsVerifModalOpen] = useState(false);
+
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab) setActiveTab(tab);
+  }, [searchParams]);
 
   const { myListings, myItems, watched, offersSent, offersRecv, appsSent, appsRecv, hasPreferences, verifStatus, mySeeking, seekRespRecv, seekRespSent } = data;
 
@@ -31,7 +37,10 @@ export default function DashboardContent({ data, user }: { data: DashboardData; 
   else if (verifStatus === 'approved') { verifText = <>Verified <CheckCircle style={{ width: '24px', height: '24px', verticalAlign: '-4px' }} /></>; verifColor = 'var(--success)'; }
   else if (verifStatus === 'rejected') { verifText = <>Rejected <XCircle style={{ width: '24px', height: '24px', verticalAlign: '-4px' }} /></>; verifColor = 'var(--danger)'; }
 
-  const switchTab = (tab: string) => setActiveTab(tab);
+  const switchTab = (tab: string) => {
+    setActiveTab(tab);
+    router.push(`/dashboard?tab=${tab}`);
+  };
 
   return (
     <div className="container">
@@ -57,22 +66,22 @@ export default function DashboardContent({ data, user }: { data: DashboardData; 
             )}
           </div>
         )}
-        <div className="stat-card">
+        <div className="stat-card" onClick={() => switchTab('listings')} style={{ cursor: 'pointer' }}>
           <div className="stat-label">Active Listings</div>
           <div className="stat-value">{myListings.length}</div>
         </div>
         {user.role === 'student' && (
-          <div className="stat-card">
+          <div className="stat-card" onClick={() => switchTab('wishlist')} style={{ cursor: 'pointer' }}>
             <div className="stat-label">Watchlisted</div>
             <div className="stat-value">{watched.length}</div>
           </div>
         )}
-        <div className="stat-card">
+        <div className="stat-card" onClick={() => switchTab('offers')} style={{ cursor: 'pointer' }}>
           <div className="stat-label">Active Offers</div>
           <div className="stat-value">{activeOffersCount}</div>
         </div>
         {user.role === 'student' && (
-          <div className="stat-card">
+          <div className="stat-card" onClick={() => switchTab('preferences')} style={{ cursor: 'pointer' }}>
             <div className="stat-label">Compatibility</div>
             <div className="stat-value" style={{ color: compatColor, display: 'flex', alignItems: 'center', gap: '8px', fontSize: '18px' }}>
               {compatStatus}

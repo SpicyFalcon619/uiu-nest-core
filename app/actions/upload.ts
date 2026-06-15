@@ -2,6 +2,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { createClient as createServerClient } from '@/lib/supabase/server';
+import { createAdminNotification } from './notifications';
 
 export async function uploadVerificationDocument(formData: FormData) {
   try {
@@ -63,6 +64,13 @@ export async function uploadVerificationDocument(formData: FormData) {
     if (insertError) {
       throw new Error("DB Insert Error: " + insertError.message);
     }
+
+    // Trigger notification to admins
+    await createAdminNotification(
+      'verification',
+      `New identity verification submitted by user ${userId}.`,
+      `/admin?tab=verifications`
+    );
 
     return { success: true };
   } catch (err: any) {
