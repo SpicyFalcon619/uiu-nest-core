@@ -306,6 +306,7 @@ export interface DashboardData {
   seekRespRecv: SeekingResponse[];
   hasPreferences: boolean;
   verifStatus: string;
+  notifications?: any[];
 }
 
 export interface AdminStats {
