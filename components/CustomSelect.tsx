@@ -13,9 +13,10 @@ interface CustomSelectProps {
   onChange: (value: string) => void;
   options: Option[];
   className?: string;
+  name?: string;
 }
 
-export default function CustomSelect({ value, onChange, options, className = '' }: CustomSelectProps) {
+export default function CustomSelect({ value, onChange, options, className = '', name }: CustomSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
@@ -38,6 +39,7 @@ export default function CustomSelect({ value, onChange, options, className = '' 
     <div className={`custom-select-wrapper ${className}`} ref={wrapperRef} data-longest={longestLabel}>
       <select 
         className="custom-select-hidden" 
+        name={name}
         value={value} 
         onChange={(e) => onChange(e.target.value)}
         tabIndex={-1}

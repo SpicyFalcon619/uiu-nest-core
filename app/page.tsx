@@ -2,7 +2,7 @@ import { ShieldCheck, Users, ShoppingBag, Receipt, BadgeCheck } from 'lucide-rea
 import { createClient } from '@/lib/supabase/server';
 import ListingCard from '@/components/ListingCard';
 import ExchangeItemCard from '@/components/ExchangeItemCard';
-import { redirect } from 'next/navigation';
+import HeroSearchForm from '@/components/HeroSearchForm';
 
 export default async function Home() {
   const supabase = await createClient();
@@ -29,55 +29,13 @@ export default async function Home() {
   const { data: { user } } = await supabase.auth.getUser();
   const isLoggedIn = !!user;
 
-  async function searchListings(formData: FormData) {
-    'use server';
-    const params = new URLSearchParams();
-    const zone = formData.get('zone');
-    const type = formData.get('type');
-    const budget = formData.get('budget');
-    if (zone) params.set('zone', zone as string);
-    if (type) params.set('type', type as string);
-    if (budget) params.set('budget', budget as string);
-    redirect(`/listings?${params.toString()}`);
-  }
-
   return (
     <>
       <section className="hero">
         <div className="hero-inner">
           <h1>Find your home near UIU.<br /><span className="hero-accent">No hidden costs. Ever.</span></h1>
           <p>The only platform that actually shows every single bill like rent, electricity, gas, and internet right upfront, before you commit to a single taka.</p>
-          <form className="hero-search" action={searchListings}>
-            <div className="hero-search-field">
-              <label className="hs-label">Zone</label>
-              <select name="zone" defaultValue="">
-                <option value="">All Zones</option>
-                <option value="1">UIU Campus Area</option>
-                <option value="2">Sayed Nagar</option>
-                <option value="3">Shatarkul</option>
-                <option value="4">Nurer Chala</option>
-                <option value="5">Aftabnagar</option>
-                <option value="6">Notun Bazar</option>
-              </select>
-            </div>
-            <span className="search-divider"></span>
-            <div className="hero-search-field">
-              <label className="hs-label">Room Type</label>
-              <select name="type" defaultValue="">
-                <option value="">Any type</option>
-                <option value="single_room">Single Room</option>
-                <option value="shared_room">Shared Room</option>
-                <option value="full_mess">Full Mess</option>
-                <option value="sublet">Sub-let</option>
-              </select>
-            </div>
-            <span className="search-divider"></span>
-            <div className="hero-search-field">
-              <label className="hs-label">Max Budget</label>
-              <input type="number" name="budget" placeholder="৳ 15,000" />
-            </div>
-            <button type="submit" className="btn btn-primary hs-btn">Search Listings</button>
-          </form>
+          <HeroSearchForm />
           <p className="hero-trust">Trusted by <strong>UIU students</strong> · Verified landlords · Transparent billing</p>
         </div>
       </section>
