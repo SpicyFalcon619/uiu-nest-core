@@ -7,6 +7,7 @@ import Modal from './Modal';
 import type { Zone } from '@/types';
 import { createItemSchema } from '@/lib/schemas';
 import CustomSelect from '@/components/CustomSelect';
+import { uploadExchangeItemPhoto } from '@/app/actions/upload';
 
 interface SellItemModalProps {
   isOpen: boolean;
@@ -17,6 +18,7 @@ interface SellItemModalProps {
 
 export default function SellItemModal({ isOpen, onClose, zones, onSuccess }: SellItemModalProps) {
   const [loading, setLoading] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -52,6 +54,20 @@ export default function SellItemModal({ isOpen, onClose, zones, onSuccess }: Sel
       return;
     }
 
+    let photo_url = null;
+    if (file) {
+      try {
+        const fileData = new FormData();
+        fileData.append('file', file);
+        const result = await uploadExchangeItemPhoto(fileData);
+        photo_url = result.path;
+      } catch (err: any) {
+        toast.error('Failed to upload image: ' + err.message);
+        setLoading(false);
+        return;
+      }
+    }
+
     const { error: submitError } = await supabase.from('items').insert({
       seller_id: user.id,
       title: formData.title,
@@ -60,7 +76,8 @@ export default function SellItemModal({ isOpen, onClose, zones, onSuccess }: Sel
       asking_price: validation.data.asking_price,
       zone_id: parseInt(formData.zone_id),
       description: formData.description,
-      status: 'available'
+      status: 'available',
+      photo_url: photo_url
       // listing_id could be added here if linked
     });
 
@@ -138,6 +155,11 @@ export default function SellItemModal({ isOpen, onClose, zones, onSuccess }: Sel
         <div className="form-group">
           <label>Description</label>
           <textarea value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} required placeholder="Describe the item condition, size, age, etc." rows={3}></textarea>
+        </div>
+        
+        <div className="form-group">
+          <label>Item Photo (Optional)</label>
+          <input type="file" accept="image/*" onChange={(e) => setFile(e.target.files ? e.target.files[0] : null)} />
         </div>
         
         <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '24px' }}>

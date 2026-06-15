@@ -77,3 +77,52 @@ export async function uploadVerificationDocument(formData: FormData) {
     return { success: false, error: err.message };
   }
 }
+
+export async function uploadExchangeItemPhoto(formData: FormData) {
+  try {
+    const file = formData.get('file') as File;
+    if (!file) throw new Error("No file provided");
+
+    // Verify authentication
+    const authSupabase = await createServerClient();
+    const { data: { user } } = await authSupabase.auth.getUser();
+    
+    if (!user) {
+      throw new Error("Unauthorized");
+    }
+
+    // Bypass RLS for storage using service_role key
+    const adminSupabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+
+    const ext = file.name.split('.').pop();
+    const filePath = `exchange/${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
+
+    // Convert File to ArrayBuffer to Buffer
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    const { error: uploadError } = await adminSupabase.storage
+      .from('uiunest')
+      .upload(filePath, buffer, {
+        contentType: file.type,
+        upsert: false
+      });
+
+    if (uploadError) {
+      throw new Error("Admin Upload Error: " + uploadError.message);
+    }
+
+    const { data: publicUrlData } = adminSupabase.storage
+      .from('uiunest')
+      .getPublicUrl(filePath);
+
+    return { path: publicUrlData.publicUrl };
+
+  } catch (error: any) {
+    console.error("Upload photo error:", error);
+    throw new Error(error.message);
+  }
+}
