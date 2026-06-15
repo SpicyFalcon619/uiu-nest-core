@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { CheckCircle, Clock, XCircle, UserCheck, Trash2, Building2, ShoppingBag, Search, Heart, List, FileText } from 'lucide-react';
 import type { DashboardData, Profile } from '@/types';
 import { fmt, conditionLabel, conditionColor, statusBadge, propertyTypeLabel } from '@/lib/utils';
+import CustomSelect from '@/components/CustomSelect';
 import ListingCard from '@/components/ListingCard';
 
 export default function DashboardContent({ data, user }: { data: DashboardData; user: Profile }) {
@@ -34,36 +35,6 @@ export default function DashboardContent({ data, user }: { data: DashboardData; 
   return (
     <div className="container">
       <h1 className="page-title">Welcome back, {user.name}</h1>
-      <div className="stats-row" style={{ marginBottom: '20px' }}>
-        <div className="stat-card">
-          <div className="stat-label">Verification</div>
-          <div className="stat-value" style={{ fontSize: '24px', fontWeight: 700, color: verifColor, paddingTop: '10px' }}>
-            {verifText}
-          </div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-label">Active Listings</div>
-          <div className="stat-value">{myListings.length}</div>
-        </div>
-        {user.role !== 'landlord' && (
-          <>
-            <div className="stat-card">
-              <div className="stat-label">Watchlisted</div>
-              <div className="stat-value">{watched.length}</div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-label">Active Offers</div>
-              <div className="stat-value">{activeOffersCount}</div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-label">Compatibility</div>
-              <div className="stat-value" style={{ fontSize: '24px', fontWeight: 700, color: compatColor, paddingTop: '10px' }}>
-                {compatStatus}
-              </div>
-            </div>
-          </>
-        )}
-      </div>
 
       <div className="dashboard-layout">
         <div className="dashboard-sidebar card" style={{ padding: '16px' }}>
@@ -74,26 +45,22 @@ export default function DashboardContent({ data, user }: { data: DashboardData; 
             <Building2 size={18} /> My Listings
           </div>
           
-          {user.role !== 'landlord' && (
-            <>
-              <div className={`dashboard-nav-item ${activeTab === 'items' ? 'active' : ''}`} onClick={() => switchTab('items')}>
-                <ShoppingBag size={18} /> Exchange Items
-              </div>
-              <div className={`dashboard-nav-item ${activeTab === 'seeking' ? 'active' : ''}`} onClick={() => switchTab('seeking')}>
-                <Search size={18} /> Looking For
-              </div>
-              
-              <div className="sidebar-section-title" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--gray)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px', marginTop: '16px', paddingLeft: '16px' }}>
-                Interactions
-              </div>
-              <div className={`dashboard-nav-item ${activeTab === 'watch' ? 'active' : ''}`} onClick={() => switchTab('watch')}>
-                <Heart size={18} /> Watchlist
-              </div>
-              <div className={`dashboard-nav-item ${activeTab === 'offers' ? 'active' : ''}`} onClick={() => switchTab('offers')}>
-                <List size={18} /> Offers
-              </div>
-            </>
-          )}
+          <div className={`dashboard-nav-item ${activeTab === 'items' ? 'active' : ''}`} onClick={() => switchTab('items')}>
+            <ShoppingBag size={18} /> Exchange Items
+          </div>
+          <div className={`dashboard-nav-item ${activeTab === 'seeking' ? 'active' : ''}`} onClick={() => switchTab('seeking')}>
+            <Search size={18} /> Looking For
+          </div>
+          
+          <div className="sidebar-section-title" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--gray)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px', marginTop: '16px', paddingLeft: '16px' }}>
+            Interactions
+          </div>
+          <div className={`dashboard-nav-item ${activeTab === 'watch' ? 'active' : ''}`} onClick={() => switchTab('watch')}>
+            <Heart size={18} /> Watchlist
+          </div>
+          <div className={`dashboard-nav-item ${activeTab === 'offers' ? 'active' : ''}`} onClick={() => switchTab('offers')}>
+            <List size={18} /> Offers
+          </div>
           
           <div className="sidebar-section-title" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--gray)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px', marginTop: '16px', paddingLeft: '16px' }}>
             Paperwork
@@ -122,11 +89,16 @@ export default function DashboardContent({ data, user }: { data: DashboardData; 
                             <td><strong>{l.title}</strong></td>
                             <td>{l.zone || l.zone_id}</td>
                             <td>
-                              <select className="form-control" style={{ padding: '4px 8px', fontSize: '13px', height: 'auto', width: 'auto' }} defaultValue={l.status}>
-                                <option value="available">Available</option>
-                                <option value="occupied">Occupied</option>
-                                <option value="soon_vacant">Soon Vacant</option>
-                              </select>
+                              <CustomSelect 
+                                name={`status_${l.listing_id || l.id}`} 
+                                value={l.status} 
+                                onChange={() => {}} 
+                                options={[
+                                  { value: 'available', label: 'Available' },
+                                  { value: 'occupied', label: 'Occupied' },
+                                  { value: 'soon_vacant', label: 'Soon Vacant' }
+                                ]} 
+                              />
                             </td>
                             <td>{fmt(l.costs?.total_monthly || 0)}</td>
                             <td>
@@ -144,7 +116,7 @@ export default function DashboardContent({ data, user }: { data: DashboardData; 
             </div>
           )}
 
-      {activeTab === 'items' && user.role !== 'landlord' && (
+      {activeTab === 'items' && (
         <div id="tab-items">
           <div className="card">
             <h3 style={{ marginTop: 0, color: 'var(--navy)' }}>My Marketplace Items</h3>
@@ -163,11 +135,16 @@ export default function DashboardContent({ data, user }: { data: DashboardData; 
                         <td>{fmt(it.asking_price || (it as any).price || 0)}</td>
                         <td><span className={`badge ${conditionColor(it.item_condition || (it as any).condition)}`}>{conditionLabel(it.item_condition || (it as any).condition)}</span></td>
                         <td>
-                          <select className="form-control" style={{ padding: '4px 8px', fontSize: '13px', height: 'auto', width: 'auto' }} defaultValue={it.status || 'available'}>
-                            <option value="available">Available</option>
-                            <option value="sold">Sold</option>
-                            <option value="withdrawn">Withdrawn</option>
-                          </select>
+                          <CustomSelect 
+                            name={`status_item_${it.item_id || (it as any).id}`} 
+                            value={it.status || 'available'} 
+                            onChange={() => {}} 
+                            options={[
+                              { value: 'available', label: 'Available' },
+                              { value: 'sold', label: 'Sold' },
+                              { value: 'withdrawn', label: 'Withdrawn' }
+                            ]} 
+                          />
                         </td>
                         <td>
                           <button className="btn btn-outline btn-sm">Edit</button>
@@ -184,7 +161,7 @@ export default function DashboardContent({ data, user }: { data: DashboardData; 
         </div>
       )}
 
-      {activeTab === 'seeking' && user.role !== 'landlord' && (
+      {activeTab === 'seeking' && (
         <div id="tab-seeking">
           <div className="card">
             <h3 style={{ marginTop: 0, color: 'var(--navy)' }}>My "Looking For" Requests</h3>
@@ -204,10 +181,15 @@ export default function DashboardContent({ data, user }: { data: DashboardData; 
                         <td>{fmt(s.budget_min)} - {fmt(s.budget_max)}</td>
                         <td>{s.move_in_date || 'N/A'}</td>
                         <td>
-                          <select className="form-control" style={{ padding: '4px 8px', fontSize: '13px', height: 'auto', width: 'auto' }} defaultValue={s.status || 'active'}>
-                            <option value="active">Active</option>
-                            <option value="fulfilled">Fulfilled</option>
-                          </select>
+                          <CustomSelect 
+                            name={`status_seeking_${s.post_id || s.id}`} 
+                            value={s.status || 'active'} 
+                            onChange={() => {}} 
+                            options={[
+                              { value: 'active', label: 'Active' },
+                              { value: 'fulfilled', label: 'Fulfilled' }
+                            ]} 
+                          />
                         </td>
                         <td>
                           <button className="btn btn-outline-danger btn-sm">Delete</button>

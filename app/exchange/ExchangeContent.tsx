@@ -5,6 +5,8 @@ import type { Item, Zone } from '@/types';
 import ExchangeItemCard from '@/components/ExchangeItemCard';
 import SellItemModal from '@/components/modals/SellItemModal';
 import { fmt } from '@/lib/utils';
+import { ShoppingBag, Search, Filter } from 'lucide-react';
+import CustomSelect from '@/components/CustomSelect';
 
 export default function ExchangeContent({
   items,
@@ -53,33 +55,46 @@ export default function ExchangeContent({
       <div className="card" style={{ marginBottom: '20px', display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'end' }}>
         <div className="form-group" style={{ margin: 0 }}>
           <label>Category</label>
-          <select value={filterCat} onChange={e => setFilterCat(e.target.value)}>
-            <option value="all">All</option>
-            <option value="furniture">Furniture</option>
-            <option value="appliances">Appliances</option>
-            <option value="electronics">Electronics</option>
-            <option value="kitchen">Kitchen</option>
-            <option value="study">Study</option>
-          </select>
+          <CustomSelect
+            name="category"
+            value={filterCat}
+            onChange={val => setFilterCat(val)}
+            options={[
+              { value: 'all', label: 'All' },
+              { value: 'furniture', label: 'Furniture' },
+              { value: 'appliances', label: 'Appliances' },
+              { value: 'electronics', label: 'Electronics' },
+              { value: 'kitchen', label: 'Kitchen' },
+              { value: 'study', label: 'Study' }
+            ]}
+          />
         </div>
         <div className="form-group" style={{ margin: 0 }}>
           <label>Condition</label>
-          <select value={filterCond} onChange={e => setFilterCond(e.target.value)}>
-            <option value="all">All</option>
-            <option value="new">New</option>
-            <option value="like_new">Like New</option>
-            <option value="good">Good</option>
-            <option value="fair">Fair</option>
-          </select>
+          <CustomSelect
+            name="condition"
+            value={filterCond}
+            onChange={val => setFilterCond(val)}
+            options={[
+              { value: 'all', label: 'All' },
+              { value: 'new', label: 'New' },
+              { value: 'like_new', label: 'Like New' },
+              { value: 'good', label: 'Good' },
+              { value: 'fair', label: 'Fair' }
+            ]}
+          />
         </div>
         <div className="form-group" style={{ margin: 0 }}>
           <label>Zone</label>
-          <select value={filterZone} onChange={e => setFilterZone(e.target.value)}>
-            <option value="all">All</option>
-            {zones.map(z => (
-              <option key={z.zone_id} value={z.zone_name}>{z.zone_name}</option>
-            ))}
-          </select>
+          <CustomSelect
+            name="zone"
+            value={filterZone}
+            onChange={val => setFilterZone(val)}
+            options={[
+              { value: 'all', label: 'All' },
+              ...zones.map(z => ({ value: z.zone_name, label: z.zone_name }))
+            ]}
+          />
         </div>
         <div className="form-group" style={{ margin: 0, minWidth: '200px' }}>
           <label>Max price: <span id="priceVal">{fmt(maxPrice)}</span></label>
@@ -94,11 +109,16 @@ export default function ExchangeContent({
         </div>
         <div className="form-group" style={{ margin: 0 }}>
           <label>Sort</label>
-          <select value={sort} onChange={e => setSort(e.target.value)}>
-            <option value="newest">Newest</option>
-            <option value="lo">Price ↑</option>
-            <option value="hi">Price ↓</option>
-          </select>
+          <CustomSelect
+            name="sort"
+            value={sort}
+            onChange={val => setSort(val)}
+            options={[
+              { value: 'newest', label: 'Newest' },
+              { value: 'lo', label: 'Price ↑' },
+              { value: 'hi', label: 'Price ↓' }
+            ]}
+          />
         </div>
       </div>
 

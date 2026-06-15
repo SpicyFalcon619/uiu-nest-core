@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 import type { Listing, Zone } from '@/types';
 import ListingCard from '@/components/ListingCard';
 import MapView from '@/components/MapView';
+import CustomSelect from '@/components/CustomSelect';
 import { SlidersHorizontal, ChevronDown, MapPin, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function ListingsClient({ initialListings, zones, currentPage, totalPages }: { initialListings: Listing[], zones: Zone[], currentPage: number, totalPages: number }) {
@@ -17,6 +18,7 @@ export default function ListingsClient({ initialListings, zones, currentPage, to
   const [type, setType] = useState(searchParams.get('type') || '');
   const [budget, setBudget] = useState(searchParams.get('budget') || '50000');
   const [listingType, setListingType] = useState('all');
+  const [sort, setSort] = useState(searchParams.get('sort') || 'newest');
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const applyFilters = () => {
@@ -24,6 +26,7 @@ export default function ListingsClient({ initialListings, zones, currentPage, to
     if (zoneId) params.set('zone', zoneId); else params.delete('zone');
     if (type) params.set('type', type); else params.delete('type');
     if (budget && budget !== '50000') params.set('budget', budget); else params.delete('budget');
+    if (sort && sort !== 'newest') params.set('sort', sort); else params.delete('sort');
     params.set('page', '1'); // reset page on filter change
     
     router.push(`?${params.toString()}`);
@@ -34,6 +37,7 @@ export default function ListingsClient({ initialListings, zones, currentPage, to
     setType('');
     setBudget('50000');
     setListingType('all');
+    setSort('newest');
     router.push('/listings');
   };
 
@@ -100,12 +104,17 @@ export default function ListingsClient({ initialListings, zones, currentPage, to
           <label><input type="checkbox" className="amen" value="liftAccess" /> Lift</label>
 
           <h4>Sort by</h4>
-          <select id="sort" className="form-group" style={{ width: '100%', padding: '8px', border: '1px solid var(--border)', borderRadius: '8px' }}>
-            <option value="cost_asc">Total Cost ↑</option>
-            <option value="cost_desc">Total Cost ↓</option>
-            <option value="newest">Newest</option>
-            <option value="rating">Rating</option>
-          </select>
+          <CustomSelect
+            name="sort"
+            value={sort}
+            onChange={(val) => setSort(val)}
+            options={[
+              { value: 'cost_asc', label: 'Total Cost ↑' },
+              { value: 'cost_desc', label: 'Total Cost ↓' },
+              { value: 'newest', label: 'Newest' },
+              { value: 'rating', label: 'Rating' }
+            ]}
+          />
 
           <div style={{ marginTop: '18px', display: 'flex', gap: '8px' }}>
             <button className="btn btn-primary btn-sm" onClick={applyFilters}>Apply</button>
