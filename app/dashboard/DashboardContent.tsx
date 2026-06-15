@@ -97,12 +97,12 @@ export default function DashboardContent({ data, user }: { data: DashboardData; 
             </div>
           </div>
         )}
-        <div className="stat-card" onClick={() => switchTab('notifications')} style={{ cursor: 'pointer' }}>
-          <div className="stat-label">Notifications</div>
-          <div className="stat-value" style={{ color: notifications.filter(n => !n.is_read).length > 0 ? 'var(--gold)' : 'inherit' }}>
-            {notifications.filter(n => !n.is_read).length} Unread
+        {user.role === 'student' && (
+          <div className="stat-card" onClick={() => switchTab('seeking')} style={{ cursor: 'pointer' }}>
+            <div className="stat-label">Seeking Posts</div>
+            <div className="stat-value">{mySeeking.length}</div>
           </div>
-        </div>
+        )}
       </div>
 
       <div className="dashboard-layout">
@@ -118,9 +118,14 @@ export default function DashboardContent({ data, user }: { data: DashboardData; 
             <ShoppingBag size={18} /> Exchange Items
           </div>
           {user.role === 'student' && (
-            <div className={`dashboard-nav-item ${activeTab === 'seeking' ? 'active' : ''}`} onClick={() => switchTab('seeking')}>
-              <Search size={18} /> Looking For
-            </div>
+            <>
+              <div className={`dashboard-nav-item ${activeTab === 'seeking' ? 'active' : ''}`} onClick={() => switchTab('seeking')}>
+                <Search size={18} /> Looking For
+              </div>
+              <div className={`dashboard-nav-item ${activeTab === 'preferences' ? 'active' : ''}`} onClick={() => switchTab('preferences')}>
+                <Settings size={18} /> Preferences
+              </div>
+            </>
           )}
           
           <div className="sidebar-section-title" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--gray)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px', marginTop: '16px', paddingLeft: '16px' }}>
@@ -531,65 +536,6 @@ export default function DashboardContent({ data, user }: { data: DashboardData; 
               </div>
             )}
           </div>
-        </div>
-      )}
-
-      {activeTab === 'notifications' && (
-        <div className="tab-pane active" id="tab-notifications">
-          <h2 style={{ marginTop: 0, color: 'var(--navy)' }}>Your Notifications</h2>
-          {notifications.length === 0 ? (
-            <p className="text-gray text-center" style={{ padding: '24px 0' }}>You have no notifications.</p>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {notifications.map(n => {
-                let badgeColor = 'var(--gray)';
-                if (n.type === 'verification') badgeColor = 'var(--warning)';
-                if (n.type === 'complaint') badgeColor = 'var(--danger)';
-                if (n.type === 'listing') badgeColor = 'var(--success)';
-
-                return (
-                  <div key={n.notif_id} style={{ 
-                    padding: '16px', 
-                    borderRadius: 'var(--radius)', 
-                    border: '1px solid var(--border)',
-                    backgroundColor: n.is_read ? 'white' : 'var(--surface-hover)',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center'
-                  }}>
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                        <span style={{ 
-                          backgroundColor: badgeColor, 
-                          color: 'white', 
-                          fontSize: '11px', 
-                          padding: '2px 8px', 
-                          borderRadius: '12px',
-                          textTransform: 'uppercase',
-                          fontWeight: 600
-                        }}>
-                          {n.type}
-                        </span>
-                        <span style={{ fontSize: '12px', color: 'var(--gray)' }}>
-                          {mounted ? new Date(n.created_at).toLocaleString() : ''}
-                        </span>
-                      </div>
-                      <p style={{ margin: '8px 0 0 0', fontWeight: n.is_read ? 400 : 600 }}>{n.message}</p>
-                    </div>
-                    
-                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                      {n.link && (
-                        <Link href={n.link} className="btn btn-outline btn-sm" onClick={() => handleMarkRead(n.notif_id)}>View Details</Link>
-                      )}
-                      {!n.is_read && !n.link && (
-                        <button className="btn btn-outline btn-sm" onClick={() => handleMarkRead(n.notif_id)}>Mark Read</button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
         </div>
       )}
 
