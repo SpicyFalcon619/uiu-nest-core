@@ -38,7 +38,7 @@ export default function VerificationModal({ isOpen, onClose, userId, onSuccess }
         .from('uiunest')
         .upload(filePath, file, { cacheControl: '3600', upsert: false });
 
-      if (uploadError) throw uploadError;
+      if (uploadError) throw new Error('Storage Upload: ' + uploadError.message);
 
       // 2. Get public URL
       const { data: publicUrlData } = supabase.storage
@@ -57,7 +57,7 @@ export default function VerificationModal({ isOpen, onClose, userId, onSuccess }
           description: formData.description
         });
 
-      if (insertError) throw insertError;
+      if (insertError) throw new Error('Database Insert: ' + insertError.message);
 
       toast.success('Verification submitted! An admin will review it shortly.');
       onSuccess();
