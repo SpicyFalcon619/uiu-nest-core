@@ -40,6 +40,19 @@ export default function LoginForm() {
         return;
       }
 
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('status')
+        .eq('id', (await supabase.auth.getUser()).data.user?.id)
+        .single();
+        
+      if (profile?.status === 'suspended') {
+        await supabase.auth.signOut();
+        toast.error('Your account is suspended. Please contact an administrator.');
+        setLoading(false);
+        return;
+      }
+
       toast.success('Logged in successfully!');
       router.push(nextUrl);
       router.refresh();

@@ -38,12 +38,19 @@ export async function adminUpdateVerification(id: number, status: 'approved' | '
 
     if (error) throw error;
 
+    let message = `Your identity verification has been ${status}.`;
+    if (status === 'rejected') {
+      message = 'Your account verification request was rejected or revoked. Please review our guidelines and try again.';
+    } else if (status === 'approved') {
+      message = 'Congratulations! Your account verification has been approved. Your listings will now display a verified badge.';
+    }
+
     // Notify user
     await createUserNotification(
       verif.user_id,
       'verification',
-      `Your identity verification has been ${status}.`,
-      '/dashboard'
+      message,
+      '/profile'
     );
 
     return { success: true };
@@ -87,6 +94,23 @@ export async function adminUpdateUserStatus(id: string, status: 'active' | 'susp
       .eq('id', id);
 
     if (error) throw error;
+
+    if (status === 'suspended') {
+      await createUserNotification(
+        id,
+        'system',
+        'Your account has been suspended by an administrator due to violations of our policies.',
+        ''
+      );
+    } else if (status === 'active') {
+      await createUserNotification(
+        id,
+        'system',
+        'Your account has been reactivated. Welcome back!',
+        ''
+      );
+    }
+
     return { success: true };
   } catch (error: any) {
     return { success: false, error: error.message };

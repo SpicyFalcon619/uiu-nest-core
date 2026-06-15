@@ -246,8 +246,10 @@ export default function AdminContent({
                             <button className="btn btn-success btn-sm" onClick={() => handleVerifAction(v.verification_id, 'approved')}>Approve</button>
                             <button className="btn btn-danger btn-sm" onClick={() => handleVerifAction(v.verification_id, 'rejected')}>Reject</button>
                           </div>
+                        ) : v.status === 'approved' ? (
+                          <button className="btn btn-danger btn-sm" onClick={() => handleVerifAction(v.verification_id, 'rejected')}>Revoke</button>
                         ) : (
-                          <span style={{ fontSize: '13px', color: 'var(--gray)' }}>Processed</span>
+                          <span style={{ fontSize: '13px', color: 'var(--gray)', textTransform: 'capitalize' }}>{v.status}</span>
                         )}
                       </td>
                     </tr>

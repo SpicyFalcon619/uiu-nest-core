@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { CheckCircle, Clock, XCircle, UserCheck, Trash2, Building2, ShoppingBag, Search, Heart, List, FileText } from 'lucide-react';
+import { CheckCircle, Clock, XCircle, UserCheck, Trash2, Building2, ShoppingBag, Search, Heart, List, FileText, Settings } from 'lucide-react';
 import type { DashboardData, Profile } from '@/types';
 import { fmt, conditionLabel, conditionColor, statusBadge, propertyTypeLabel } from '@/lib/utils';
 import CustomSelect from '@/components/CustomSelect';

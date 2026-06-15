@@ -32,9 +32,17 @@ export default function Navbar() {
           .select('*')
           .eq('id', authUser.id)
           .single();
-        setUser(profile);
-        if (profile?.role) {
-          localStorage.setItem('userRole', profile.role);
+        
+        if (profile?.status === 'suspended') {
+          await supabase.auth.signOut();
+          setUser(null);
+          localStorage.removeItem('userRole');
+          router.push('/login');
+        } else {
+          setUser(profile);
+          if (profile?.role) {
+            localStorage.setItem('userRole', profile.role);
+          }
         }
       } else {
         localStorage.removeItem('userRole');
