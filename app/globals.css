@@ -686,11 +686,11 @@ input[type="checkbox"] { width: auto; margin: 0; accent-color: var(--emerald); w
    ════════════════════════════════════════ */
 .dashboard-layout {
   display: flex;
-  gap: 32px;
+  gap: 18px;
   align-items: start;
 }
 .dashboard-sidebar {
-  width: 260px;
+  width: calc((100% - 4 * 18px) / 5);
   flex-shrink: 0;
   display: flex;
   flex-direction: column;

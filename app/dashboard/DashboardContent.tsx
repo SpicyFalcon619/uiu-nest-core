@@ -36,7 +36,7 @@ export default function DashboardContent({ data, user }: { data: DashboardData; 
     <div className="container">
       <h1 className="page-title">Welcome back, {user.name}</h1>
 
-      <div className="stats-row" style={{ display: 'flex', gap: '16px', marginBottom: '24px', flexWrap: 'wrap' }}>
+      <div className="stats-row">
         {user.role !== 'admin' && (
           <div className="stat-card">
             <div className="stat-label">Verification</div>
