@@ -25,14 +25,11 @@ export default function DashboardContent({ data, user }: { data: DashboardData; 
   ) : 'Setup Required';
   const compatColor = (user.role === 'student' && hasPreferences) ? 'var(--success)' : 'var(--warning)';
 
-  let verifText: React.ReactNode = 'N/A';
+  let verifText: React.ReactNode = 'Unverified';
   let verifColor = 'var(--gray)';
-  if (user.role === 'landlord' || verifStatus !== 'none') {
-    if (verifStatus === 'none') { verifText = 'Unverified'; verifColor = 'var(--gray)'; }
-    else if (verifStatus === 'pending') { verifText = <>Pending <Clock style={{ width: '24px', height: '24px', verticalAlign: '-4px' }} /></>; verifColor = 'var(--amber)'; }
-    else if (verifStatus === 'approved') { verifText = <>Verified <CheckCircle style={{ width: '24px', height: '24px', verticalAlign: '-4px' }} /></>; verifColor = 'var(--success)'; }
-    else if (verifStatus === 'rejected') { verifText = <>Rejected <XCircle style={{ width: '24px', height: '24px', verticalAlign: '-4px' }} /></>; verifColor = 'var(--danger)'; }
-  }
+  if (verifStatus === 'pending') { verifText = <>Pending <Clock style={{ width: '24px', height: '24px', verticalAlign: '-4px' }} /></>; verifColor = 'var(--amber)'; }
+  else if (verifStatus === 'approved') { verifText = <>Verified <CheckCircle style={{ width: '24px', height: '24px', verticalAlign: '-4px' }} /></>; verifColor = 'var(--success)'; }
+  else if (verifStatus === 'rejected') { verifText = <>Rejected <XCircle style={{ width: '24px', height: '24px', verticalAlign: '-4px' }} /></>; verifColor = 'var(--danger)'; }
 
   const switchTab = (tab: string) => setActiveTab(tab);
 

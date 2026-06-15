@@ -8,18 +8,24 @@ import { updateProfileSchema, updatePreferencesSchema } from '@/lib/schemas';
 import { User, Settings, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 import CustomSelect from '@/components/CustomSelect';
+import VerificationModal from '@/components/modals/VerificationModal';
+import { useRouter } from 'next/navigation';
 
 export default function ProfileContent({ 
   initialProfile, 
-  initialPreferences 
+  initialPreferences,
+  initialVerifStatus
 }: { 
   initialProfile: Profile; 
   initialPreferences: UserPreferences | null; 
+  initialVerifStatus: string;
 }) {
+  const router = useRouter();
   const [profile, setProfile] = useState<Profile>(initialProfile);
   const [prefs, setPrefs] = useState<UserPreferences | null>(initialPreferences);
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [loadingPrefs, setLoadingPrefs] = useState(false);
+  const [isVerifModalOpen, setIsVerifModalOpen] = useState(false);
 
   // Profile Form State
   const [profileForm, setProfileForm] = useState({
@@ -188,14 +194,29 @@ export default function ProfileContent({
         ) : (
           <div style={{ marginTop: '32px', paddingTop: '24px', borderTop: '1px solid var(--border)' }}>
             <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: 0 }}>
-              <ShieldCheck size={20} color="var(--success)" /> Verification
+              <ShieldCheck size={20} color={initialVerifStatus === 'approved' ? "var(--success)" : "var(--amber)"} /> Verification
             </h3>
             <p style={{ fontSize: '14px', color: 'var(--gray)' }}>
               Verifying your identity helps build trust within the UIUNest community and increases your chances of finding flatmates.
             </p>
-            <button className="btn btn-outline btn-block" onClick={() => alert('Verification feature coming soon')}>
-              Submit ID Document
-            </button>
+            
+            <div style={{ marginTop: '16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ fontWeight: 'bold' }}>
+                Status: <span style={{ 
+                  color: initialVerifStatus === 'approved' ? 'var(--success)' : 
+                         initialVerifStatus === 'pending' ? 'var(--amber)' : 
+                         initialVerifStatus === 'rejected' ? 'var(--danger)' : 'var(--gray)' 
+                }}>
+                  {initialVerifStatus.charAt(0).toUpperCase() + initialVerifStatus.slice(1)}
+                </span>
+              </div>
+              
+              {(initialVerifStatus === 'none' || initialVerifStatus === 'rejected') && (
+                <button className="btn btn-outline" style={{ marginLeft: 'auto' }} onClick={() => setIsVerifModalOpen(true)}>
+                  Submit ID Document
+                </button>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -331,6 +352,16 @@ export default function ProfileContent({
           </form>
         </div>
       )}
+
+      <VerificationModal 
+        isOpen={isVerifModalOpen} 
+        onClose={() => setIsVerifModalOpen(false)} 
+        userId={profile.id} 
+        onSuccess={() => {
+          setIsVerifModalOpen(false);
+          router.refresh();
+        }} 
+      />
     </div>
   );
 }
