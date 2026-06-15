@@ -44,6 +44,12 @@ export default async function ExchangeItemDetail({ params }: { params: Promise<{
   const isOwner = user?.id === item.seller_id;
   const isLoggedIn = !!user;
 
+  let isAdmin = false;
+  if (isLoggedIn) {
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+    if (profile?.role === 'admin') isAdmin = true;
+  }
+
   // If logged in, fetch user's votes to pass down
   let finalComments = comments;
   if (isLoggedIn) {
@@ -125,7 +131,7 @@ export default async function ExchangeItemDetail({ params }: { params: Promise<{
                     targetUserId={item.seller_id}
                     initialRating={averageRating}
                     totalRatings={totalRatings}
-                    isLoggedIn={isLoggedIn}
+                    isLoggedIn={isLoggedIn && !isAdmin}
                     currentUserId={user?.id}
                   />
                 )}
@@ -168,8 +174,8 @@ export default async function ExchangeItemDetail({ params }: { params: Promise<{
             <ExchangeItemDetailClient 
               itemId={item.item_id} 
               itemTitle={item.title}
-              isLoggedIn={isLoggedIn} 
-              isOwner={isOwner} 
+              isLoggedIn={isLoggedIn && !isAdmin}
+              isOwner={isOwner || isAdmin}
               status={item.status}
               askingPrice={item.asking_price}
             />

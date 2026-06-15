@@ -10,7 +10,7 @@ import CustomSelect from '@/components/CustomSelect';
 import CreateListingModal from '@/components/modals/CreateListingModal';
 import { SlidersHorizontal, ChevronDown, MapPin, ChevronLeft, ChevronRight } from 'lucide-react';
 
-export default function ListingsClient({ initialListings, zones, currentPage, totalPages }: { initialListings: Listing[], zones: Zone[], currentPage: number, totalPages: number }) {
+export default function ListingsClient({ initialListings, zones, currentPage, totalPages, isLoggedIn, isAdmin }: { initialListings: Listing[], zones: Zone[], currentPage: number, totalPages: number, isLoggedIn: boolean, isAdmin?: boolean }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   
@@ -53,8 +53,10 @@ export default function ListingsClient({ initialListings, zones, currentPage, to
     <div className="container">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
         <h1 className="page-title" style={{ margin: 0 }}>Browse Listings</h1>
-        <div>
-          <button className="btn btn-gold" onClick={() => setListModalOpen(true)}>+ List Property</button>
+        <div id="createListingBtnMount">
+          {isLoggedIn && !isAdmin && (
+            <button className="btn btn-primary" onClick={() => setListModalOpen(true)}>+ Create Listing</button>
+          )}
         </div>
       </div>
       <div className="listings-layout">

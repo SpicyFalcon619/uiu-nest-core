@@ -28,12 +28,20 @@ export default async function ExchangePage() {
     zone: it.zone?.zone_name
   }));
 
+  let isAdmin = false;
+  const user = userData?.user;
+  if (user) {
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+    if (profile?.role === 'admin') isAdmin = true;
+  }
+
   return (
     <Suspense fallback={<div className="container" style={{ padding: '40px 0', textAlign: 'center' }}>Loading Exchange...</div>}>
       <ExchangeContent 
         items={formattedItems} 
         zones={(zones as Zone[]) || []} 
         isLoggedIn={isLoggedIn}
+        isAdmin={isAdmin}
       />
     </Suspense>
   );

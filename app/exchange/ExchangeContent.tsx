@@ -12,11 +12,13 @@ import CustomSelect from '@/components/CustomSelect';
 export default function ExchangeContent({
   items,
   zones,
-  isLoggedIn
+  isLoggedIn,
+  isAdmin
 }: {
   items: Item[];
   zones: Zone[];
   isLoggedIn: boolean;
+  isAdmin?: boolean;
 }) {
   const [filterCat, setFilterCat] = useState('all');
   const [filterCond, setFilterCond] = useState('all');
@@ -48,7 +50,7 @@ export default function ExchangeContent({
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '16px' }}>
         <h1 className="page-title" style={{ margin: 0 }}>UIUNest Exchange</h1>
         <div id="sellBtnMount">
-          {isLoggedIn && (
+          {isLoggedIn && !isAdmin && (
             <button className="btn btn-gold" onClick={() => setSellModalOpen(true)}>+ Sell Item</button>
           )}
         </div>

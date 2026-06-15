@@ -45,6 +45,15 @@ export default async function ListingsPage({ searchParams }: { searchParams: Pro
 
   const totalPages = count ? Math.ceil(count / limit) : 1;
 
+  const { data: { user } } = await supabase.auth.getUser();
+  const isLoggedIn = !!user;
+  
+  let isAdmin = false;
+  if (isLoggedIn) {
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+    if (profile?.role === 'admin') isAdmin = true;
+  }
+
   return (
     <Suspense fallback={<div style={{ padding: '60px', textAlign: 'center' }}>Loading Listings...</div>}>
       <ListingsClient 
@@ -52,6 +61,8 @@ export default async function ListingsPage({ searchParams }: { searchParams: Pro
         zones={(zones || []) as Zone[]} 
         currentPage={page}
         totalPages={totalPages}
+        isLoggedIn={isLoggedIn}
+        isAdmin={isAdmin}
       />
     </Suspense>
   );

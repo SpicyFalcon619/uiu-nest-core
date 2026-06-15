@@ -16,6 +16,11 @@ export async function submitRating(targetUserId: string, rating: number, review:
     return { error: 'You cannot rate yourself.' };
   }
 
+  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+  if (profile?.role === 'admin') {
+    return { error: 'Admins cannot submit ratings.' };
+  }
+
   // Insert the rating
   const { error } = await supabase
     .from('user_ratings')

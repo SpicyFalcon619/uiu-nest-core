@@ -43,6 +43,12 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
   const { data: { user } } = await supabase.auth.getUser();
   const isLoggedIn = !!user;
 
+  let isAdmin = false;
+  if (isLoggedIn) {
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+    if (profile?.role === 'admin') isAdmin = true;
+  }
+
   // Check watchlist status if logged in
   let isWatched = false;
   if (isLoggedIn) {
@@ -222,7 +228,7 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
                     targetUserId={listing.user_id}
                     initialRating={averageRating}
                     totalRatings={totalRatings}
-                    isLoggedIn={isLoggedIn}
+                    isLoggedIn={isLoggedIn && !isAdmin}
                     currentUserId={user?.id}
                   />
                 )}
@@ -230,11 +236,23 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
               </div>
             </div>
 
-            <ApplicationForm 
-              listingId={parseInt(id)} 
-              ownerId={listing.user_id} 
-              listingTitle={listing.title} 
-            />
+            {isLoggedIn ? (
+              user?.id === listing.user_id || isAdmin ? (
+                <div style={{ padding: '16px', background: 'var(--surface-1)', borderRadius: '8px', textAlign: 'center', color: 'var(--ink-muted)' }}>
+                  {isAdmin ? 'Admins cannot apply for listings.' : 'This is your own listing.'}
+                </div>
+              ) : (
+                <ApplicationForm 
+                  listingId={parseInt(id)} 
+                  ownerId={listing.user_id} 
+                  listingTitle={listing.title} 
+                />
+              )
+            ) : (
+              <div style={{ padding: '16px', background: 'var(--surface-1)', borderRadius: '8px', textAlign: 'center', color: 'var(--ink-muted)' }}>
+                Please log in to apply.
+              </div>
+            )}
           </div>
         </div>
 
