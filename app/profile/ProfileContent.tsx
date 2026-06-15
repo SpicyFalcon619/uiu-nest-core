@@ -194,7 +194,11 @@ export default function ProfileContent({
         ) : (
           <div style={{ marginTop: '32px', paddingTop: '24px', borderTop: '1px solid var(--border)' }}>
             <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: 0 }}>
-              <ShieldCheck size={20} color={initialVerifStatus === 'approved' ? "var(--success)" : "var(--amber)"} /> Verification
+              <ShieldCheck size={20} color={
+                initialVerifStatus === 'approved' ? "var(--success)" : 
+                initialVerifStatus === 'pending' ? "var(--warning)" : 
+                initialVerifStatus === 'rejected' ? "var(--danger)" : "var(--gray)"
+              } /> Verification
             </h3>
             <p style={{ fontSize: '14px', color: 'var(--gray)' }}>
               Verifying your identity helps build trust within the UIUNest community and increases your chances of finding flatmates.
@@ -204,7 +208,7 @@ export default function ProfileContent({
               <div style={{ fontWeight: 'bold' }}>
                 Status: <span style={{ 
                   color: initialVerifStatus === 'approved' ? 'var(--success)' : 
-                         initialVerifStatus === 'pending' ? 'var(--amber)' : 
+                         initialVerifStatus === 'pending' ? 'var(--warning)' : 
                          initialVerifStatus === 'rejected' ? 'var(--danger)' : 'var(--gray)' 
                 }}>
                   {initialVerifStatus.charAt(0).toUpperCase() + initialVerifStatus.slice(1)}
