@@ -4,6 +4,8 @@ import { fmt, conditionLabel, conditionColor, fmtDate, placeholderPhoto } from '
 import { Link as LinkIcon, User, MapPin, Calendar, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
 import ExchangeItemDetailClient from './ExchangeItemDetailClient';
+import CommentSection from '@/components/comments/CommentSection';
+import UserRating from '@/components/ratings/UserRating';
 
 export default async function ExchangeItemDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -19,19 +21,62 @@ export default async function ExchangeItemDetail({ params }: { params: Promise<{
       listing:listings(title, listing_id)
     `)
     .eq('item_id', parseInt(id))
+    .eq('item_id', parseInt(id))
     .single();
 
   if (!item) {
     notFound();
   }
 
+  const { data: commentsData } = await supabase
+    .from('item_comments')
+    .select(`
+      *,
+      user:profiles!item_comments_user_id_fkey(name, profile_pic)
+    `)
+    .eq('item_id', parseInt(id))
+    .order('created_at', { ascending: true });
+
+  const comments = commentsData || [];
+
   // Determine if the current user is logged in and if they are the seller
   const { data: { user } } = await supabase.auth.getUser();
   const isOwner = user?.id === item.seller_id;
   const isLoggedIn = !!user;
 
+  // If logged in, fetch user's votes to pass down
+  let finalComments = comments;
+  if (isLoggedIn) {
+    const { data: userVotes } = await supabase
+      .from('item_comment_votes')
+      .select('comment_id, vote_type')
+      .eq('user_id', user.id);
+      
+    if (userVotes && userVotes.length > 0) {
+      finalComments = comments.map(c => {
+        const vote = userVotes.find(v => v.comment_id === c.comment_id);
+        return vote ? { ...c, user_vote: vote.vote_type } : c;
+      });
+    }
+  }
+
+  // Fetch target user's ratings to calculate average
+  let averageRating = 0;
+  let totalRatings = 0;
+  if (item.seller_id) {
+    const { data: ratingsData } = await supabase
+      .from('user_ratings')
+      .select('rating')
+      .eq('target_user_id', item.seller_id);
+      
+    if (ratingsData && ratingsData.length > 0) {
+      totalRatings = ratingsData.length;
+      averageRating = ratingsData.reduce((acc: number, curr: any) => acc + curr.rating, 0) / totalRatings;
+    }
+  }
+
   const placeholderSvg = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='400'><rect width='600' height='400' fill='%23EEF7F2'/><text x='50%' y='50%' font-family='sans-serif' font-size='18' fill='%231A5C45' text-anchor='middle' dominant-baseline='middle'>No Photo</text></svg>";
-  const thumbnail = item.photos && item.photos.length > 0 ? item.photos[0] : placeholderSvg;
+  const thumbnail = item.photos && item.photos.length > 0 ? item.photos[0] : (item.photo_url || placeholderSvg);
 
   return (
     <div className="container" style={{ padding: '40px 0' }}>
@@ -72,8 +117,19 @@ export default async function ExchangeItemDetail({ params }: { params: Promise<{
                 {item.seller?.name?.charAt(0).toUpperCase()}
               </div>
               <div>
-                <div style={{ fontWeight: 600 }}>{item.seller?.name || 'Anonymous User'}</div>
-                <div style={{ fontSize: '14px', color: 'var(--gray)' }}>UIU Student · Member since {fmtDate(item.seller?.created_at || item.created_at)}</div>
+                <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  {item.seller?.name || 'Anonymous User'}
+                </div>
+                {item.seller_id && (
+                  <UserRating 
+                    targetUserId={item.seller_id}
+                    initialRating={averageRating}
+                    totalRatings={totalRatings}
+                    isLoggedIn={isLoggedIn}
+                    currentUserId={user?.id}
+                  />
+                )}
+                <div style={{ fontSize: '14px', color: 'var(--gray)', marginTop: '4px' }}>UIU Student · Member since {fmtDate(item.seller?.created_at || item.created_at)}</div>
               </div>
             </div>
             
@@ -116,6 +172,15 @@ export default async function ExchangeItemDetail({ params }: { params: Promise<{
               isOwner={isOwner} 
               status={item.status}
               askingPrice={item.asking_price}
+            />
+          </div>
+
+          <div style={{ marginTop: '32px' }}>
+            <CommentSection 
+              itemId={item.item_id}
+              initialComments={finalComments as any}
+              isLoggedIn={isLoggedIn}
+              currentUserId={user?.id}
             />
           </div>
         </div>

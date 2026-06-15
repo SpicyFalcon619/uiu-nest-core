@@ -5,7 +5,7 @@ import type { Item } from '@/types';
 
 export default function ExchangeItemCard({ item, isLoggedIn }: { item: Item; isLoggedIn: boolean }) {
   const placeholderSvg = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='400'><rect width='600' height='400' fill='%23EEF7F2'/><text x='50%' y='50%' font-family='sans-serif' font-size='18' fill='%231A5C45' text-anchor='middle' dominant-baseline='middle'>No Photo</text></svg>";
-  const thumbnail = item.photos && item.photos.length > 0 ? item.photos[0] : placeholderSvg;
+  const thumbnail = item.photos && item.photos.length > 0 ? item.photos[0] : (item.photo_url || placeholderSvg);
 
   return (
     <div className="listing-card">

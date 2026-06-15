@@ -5,6 +5,7 @@ import ApplicationForm from './ApplicationForm';
 import WatchlistButton from '@/components/WatchlistButton';
 import ReviewsSection from '@/components/ReviewsSection';
 import { notFound } from 'next/navigation';
+import ListingMap from '@/components/ListingMap';
 
 export const metadata = {
   title: 'Listing Details - UIUNest',
@@ -102,6 +103,15 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
               <p style={{ color: 'var(--ink-muted)' }}>Not specified.</p>
             )}
           </div>
+
+          {(listing.lat && listing.lng) ? (
+            <ListingMap lat={listing.lat} lng={listing.lng} title={listing.title} />
+          ) : (
+            <div className="card" style={{ padding: '32px', marginBottom: '24px' }}>
+              <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><MapPin size={20} /> Location & Map</h3>
+              <p style={{ color: 'var(--ink-muted)' }}>Exact map coordinates not available for this listing.</p>
+            </div>
+          )}
 
           <ReviewsSection 
             listingId={parseInt(id)} 
