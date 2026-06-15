@@ -480,13 +480,59 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, te
   -webkit-appearance: none;
   appearance: none;
 }
-select {
-  background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748B' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 14px center;
-  background-size: 16px;
-  padding-right: 40px;
+select.custom-select-hidden {
+  position: absolute !important; opacity: 0 !important; pointer-events: none !important; height: 1px !important; width: 1px !important; border: none !important; padding: 0 !important; margin: 0 !important; z-index: -1 !important;
 }
+.custom-select-wrapper {
+  position: relative; width: 100%; display: grid; align-items: center;
+  max-width: 100%;
+}
+.custom-select-wrapper::after {
+  content: attr(data-longest);
+  visibility: hidden; height: 0; overflow: hidden;
+  font-size: 14px; font-weight: 500;
+  padding: 0 40px 0 14px; /* match trigger padding + space for svg icon */
+  grid-area: 1 / 1;
+  pointer-events: none; white-space: nowrap;
+  max-width: 100%;
+}
+.custom-select-trigger {
+  grid-area: 1 / 1;
+  width: 100%; padding: 12px 14px;
+  background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius);
+  font-size: 14px; color: var(--ink); font-family: inherit; font-weight: 500;
+  display: flex; justify-content: space-between; align-items: center;
+  cursor: pointer; transition: all 0.2s ease; user-select: none;
+  overflow: hidden;
+}
+.custom-select-trigger span {
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.custom-select-trigger:hover { border-color: var(--border-mid); }
+.custom-select-trigger.open {
+  border-color: var(--emerald); box-shadow: 0 0 0 3px var(--emerald-glow);
+}
+.custom-select-trigger svg {
+  width: 16px; height: 16px; stroke: var(--ink-muted); transition: transform 0.2s ease; flex-shrink: 0; margin-left: 8px;
+}
+.custom-select-trigger.open svg { transform: rotate(180deg); }
+.custom-select-options {
+  position: absolute; top: calc(100% + 4px); left: 0; min-width: 100%; width: max-content;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xl); z-index: 99999; max-height: 240px; overflow-y: auto; overflow-x: hidden;
+  opacity: 0; pointer-events: none; transform: translateY(-4px); transition: all 0.2s ease;
+}
+.custom-select-options.open { opacity: 1; pointer-events: auto; transform: translateY(0); }
+
+/* Custom slim scrollbar for dropdowns */
+.custom-select-options::-webkit-scrollbar { width: 6px; }
+.custom-select-options::-webkit-scrollbar-track { background: transparent; margin: 8px 0; }
+.custom-select-options::-webkit-scrollbar-thumb { background: var(--border-mid); border-radius: 6px; border: 1px solid var(--surface); }
+.custom-select-options::-webkit-scrollbar-thumb:hover { background: var(--gray); }
+.custom-option {
+  padding: 10px 14px; font-size: 14px; font-weight: 500; color: var(--ink); cursor: pointer; transition: background 0.15s ease;
+}
+.custom-option:hover, .custom-option.selected { background: var(--emerald-soft); color: var(--emerald); }
 
 input[type="file"] {
   padding: 8px;
