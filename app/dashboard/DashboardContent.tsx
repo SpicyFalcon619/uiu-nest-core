@@ -532,8 +532,6 @@ export default function DashboardContent({ data, user }: { data: DashboardData; 
             )}
           </div>
         </div>
-          </div>
-        </div>
       )}
 
       {activeTab === 'notifications' && (
@@ -594,6 +592,7 @@ export default function DashboardContent({ data, user }: { data: DashboardData; 
           )}
         </div>
       )}
+
         </div>
       </div>
       <VerificationModal 
