@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { redirect } from 'next/navigation';
 import AdminContent from './AdminContent';
 import type { AdminStats, Complaint, Verification } from '@/types';
@@ -24,14 +25,19 @@ export default async function AdminPage() {
     redirect('/dashboard');
   }
 
-  // Fetch Verifications
-  const { data: verificationsRes } = await supabase
+  const adminSupabase = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
+  // Fetch Verifications (Bypassing RLS)
+  const { data: verificationsRes } = await adminSupabase
     .from('verifications')
     .select('*, user:profiles!verifications_user_id_fkey(name, email)')
     .order('submitted_at', { ascending: false });
 
-  // Fetch Complaints
-  const { data: complaintsRes } = await supabase
+  // Fetch Complaints (Bypassing RLS)
+  const { data: complaintsRes } = await adminSupabase
     .from('complaints')
     .select('*, complainant:profiles!complaints_complainant_id_fkey(name, email), against:profiles!complaints_against_user_id_fkey(name, email), listing:listings(title)')
     .order('created_at', { ascending: false });

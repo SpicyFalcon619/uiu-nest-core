@@ -1,13 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import type { AdminStats, Complaint, Verification } from '@/types';
 import { ShieldAlert, UserCheck, TrendingUp, Home, Users } from 'lucide-react';
 import { statusBadge } from '@/lib/utils';
 import RentChart from './RentChart';
 import DemandChart from './DemandChart';
+import { adminUpdateVerification, adminUpdateComplaint, adminUpdateUserStatus, adminDeleteListing } from '@/app/actions/admin';
 
 export default function AdminContent({ 
   stats, 
@@ -27,14 +27,9 @@ export default function AdminContent({
   const [complaints, setComplaints] = useState(initialComplaints);
 
   const handleVerifAction = async (id: number, status: 'approved' | 'rejected') => {
-    const supabase = createClient();
-    const { error } = await supabase
-      .from('verifications')
-      .update({ status })
-      .eq('verification_id', id);
-
-    if (error) {
-      toast.error('Action failed');
+    const result = await adminUpdateVerification(id, status);
+    if (!result.success) {
+      toast.error(result.error || 'Action failed');
     } else {
       toast.success(`Verification ${status}`);
       setVerifications(verifications.map(v => v.verification_id === id ? { ...v, status } : v));
@@ -42,14 +37,9 @@ export default function AdminContent({
   };
 
   const handleComplaintAction = async (id: number, status: 'resolved' | 'dismissed') => {
-    const supabase = createClient();
-    const { error } = await supabase
-      .from('complaints')
-      .update({ status })
-      .eq('complaint_id', id);
-
-    if (error) {
-      toast.error('Action failed');
+    const result = await adminUpdateComplaint(id, status);
+    if (!result.success) {
+      toast.error(result.error || 'Action failed');
     } else {
       toast.success(`Complaint ${status}`);
       setComplaints(complaints.map(c => c.complaint_id === id ? { ...c, status } : c));
@@ -57,14 +47,9 @@ export default function AdminContent({
   };
 
   const setUserStatus = async (id: string, status: 'active' | 'suspended') => {
-    const supabase = createClient();
-    const { error } = await supabase
-      .from('profiles')
-      .update({ status })
-      .eq('id', id);
-
-    if (error) {
-      toast.error('Failed to update user');
+    const result = await adminUpdateUserStatus(id, status);
+    if (!result.success) {
+      toast.error(result.error || 'Failed to update user');
     } else {
       toast.success(`User marked as ${status}`);
       window.location.reload();
@@ -73,9 +58,8 @@ export default function AdminContent({
 
   const deleteListing = async (id: number) => {
     if (!confirm('Are you sure you want to completely delete this listing? This action cannot be undone.')) return;
-    const supabase = createClient();
-    const { error } = await supabase.from('listings').delete().eq('listing_id', id);
-    if (error) toast.error('Failed to delete listing');
+    const result = await adminDeleteListing(id);
+    if (!result.success) toast.error(result.error || 'Failed to delete listing');
     else {
       toast.success('Listing completely deleted');
       window.location.reload();
