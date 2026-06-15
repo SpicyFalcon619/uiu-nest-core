@@ -418,7 +418,8 @@ img { display: block; max-width: 100%; }
   padding: 108px 5%;
   text-align: center;
   position: relative;
-  overflow: hidden;
+  overflow-x: clip;
+  overflow-y: visible;
 }
 /* subtle decorative orbs */
 .hero::before, .hero::after {
