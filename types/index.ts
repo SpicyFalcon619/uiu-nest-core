@@ -310,6 +310,7 @@ export interface DashboardData {
 
 export interface AdminStats {
   totalListings: number;
+  totalUsers: number;
   openComplaints: number;
   avgRentByZone: { zone: string; avg: number }[];
   seekingVsListings: { zone: string; seeking: number; listings: number }[];

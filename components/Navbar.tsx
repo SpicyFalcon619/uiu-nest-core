@@ -154,7 +154,9 @@ export default function Navbar() {
                   <span className="mas-name">{user.name}</span>
                   <span className="mas-role">{user.role}</span>
                 </div>
-                <Link href="/dashboard" className="mas-item" onClick={() => setAccountOpen(false)}><LayoutDashboard size={16} /> Dashboard</Link>
+                {user.role !== 'admin' && (
+                  <Link href="/dashboard" className="mas-item" onClick={() => setAccountOpen(false)}><LayoutDashboard size={16} /> Dashboard</Link>
+                )}
                 <Link href="/profile" className="mas-item" onClick={() => setAccountOpen(false)}><User size={16} /> Profile</Link>
                 {user.role !== 'admin' && (
                   <>
@@ -187,11 +189,11 @@ export default function Navbar() {
                       
                       {avatarOpen && (
                         <div className="avatar-menu open" id="avatarMenu" ref={avatarMenuRef} style={{ top: '100%', right: 0, position: 'absolute' }}>
-                          <Link href="/dashboard">Dashboard</Link>
+                          {user.role !== 'admin' && <Link href="/dashboard">Dashboard</Link>}
                           <Link href="/profile">Profile</Link>
                           {user.role !== 'admin' && <Link href="/bills">Bills</Link>}
                           {user.role === 'admin' && <Link href="/admin">Admin Panel</Link>}
-                          <button onClick={handleLogout} style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '12px 16px', fontSize: '13px', color: 'var(--ink)', cursor: 'pointer', fontFamily: 'inherit' }}>
+                          <button onClick={handleLogout}>
                             Logout
                           </button>
                         </div>

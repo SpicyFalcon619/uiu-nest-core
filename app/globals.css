@@ -187,12 +187,13 @@ img { display: block; max-width: 100%; }
   from { opacity: 0; transform: translateY(-6px) scale(0.98); }
   to   { opacity: 1; transform: translateY(0) scale(1); }
 }
-.avatar-menu a {
-  display: block; padding: 10px 14px;
-  color: var(--ink); font-size: 14px; font-weight: 500;
+.avatar-menu a, .avatar-menu button {
+  display: block; padding: 10px 14px; width: 100%; text-align: left;
+  color: var(--ink); font-size: 14px; font-weight: 500; font-family: inherit;
+  border: none; background: transparent; cursor: pointer;
   border-radius: 8px; transition: all 0.15s ease;
 }
-.avatar-menu a:hover { background: var(--emerald-soft); color: var(--emerald); }
+.avatar-menu a:hover, .avatar-menu button:hover { background: var(--emerald-soft); color: var(--emerald); }
 
 /* Icon button */
 .icon-btn {

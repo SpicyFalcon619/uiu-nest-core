@@ -53,11 +53,23 @@ export default async function AdminPage() {
 
   // Fetch Stats Data
   const { count: totalListings } = await supabase.from('listings').select('*', { count: 'exact', head: true });
+  const { count: totalUsers } = await supabase.from('profiles').select('*', { count: 'exact', head: true });
   const openComplaints = complaints.filter(c => c.status === 'open' || c.status === 'pending').length;
 
   const { data: listings } = await supabase.from('listings').select('zone_id, costs:utility_costs(base_rent)');
   const { data: seekingPosts } = await supabase.from('seeking_posts').select('zone_id');
   const { data: zones } = await supabase.from('zones').select('zone_id, zone_name');
+
+  // Fetch full listings & users for the new tables
+  const { data: allUsers } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
+  const { data: allListingsData } = await supabase.from('listings').select('*, zone:zones(zone_name), owner:profiles!listings_user_id_fkey(name, email)').order('created_at', { ascending: false });
+
+  const allListings = (allListingsData || []).map((l: any) => ({
+    ...l,
+    zone: l.zone?.zone_name,
+    ownerName: l.owner?.name,
+    ownerEmail: l.owner?.email
+  }));
 
   const avgRentByZone: any[] = [];
   const seekingVsListings: any[] = [];
@@ -93,6 +105,7 @@ export default async function AdminPage() {
 
   const stats: AdminStats = {
     totalListings: totalListings || 0,
+    totalUsers: totalUsers || 0,
     openComplaints,
     avgRentByZone,
     seekingVsListings
@@ -105,6 +118,8 @@ export default async function AdminPage() {
         stats={stats} 
         initialVerifications={verifications} 
         initialComplaints={complaints} 
+        allUsers={allUsers || []}
+        allListings={allListings}
       />
     </div>
   );

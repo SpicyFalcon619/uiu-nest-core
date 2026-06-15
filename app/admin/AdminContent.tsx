@@ -4,17 +4,23 @@ import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import type { AdminStats, Complaint, Verification } from '@/types';
-import { ShieldAlert, UserCheck, TrendingUp, Home, CheckCircle, XCircle } from 'lucide-react';
+import { ShieldAlert, UserCheck, TrendingUp, Home, Users } from 'lucide-react';
 import { statusBadge } from '@/lib/utils';
+import RentChart from './RentChart';
+import DemandChart from './DemandChart';
 
 export default function AdminContent({ 
   stats, 
   initialVerifications, 
-  initialComplaints 
+  initialComplaints,
+  allUsers,
+  allListings
 }: { 
   stats: AdminStats;
   initialVerifications: Verification[];
   initialComplaints: Complaint[];
+  allUsers: any[];
+  allListings: any[];
 }) {
   const [activeTab, setActiveTab] = useState('overview');
   const [verifications, setVerifications] = useState(initialVerifications);
@@ -50,79 +56,127 @@ export default function AdminContent({
     }
   };
 
+  const setUserStatus = async (id: string, status: 'active' | 'suspended') => {
+    const supabase = createClient();
+    const { error } = await supabase
+      .from('profiles')
+      .update({ status })
+      .eq('id', id);
+
+    if (error) {
+      toast.error('Failed to update user');
+    } else {
+      toast.success(`User marked as ${status}`);
+      window.location.reload();
+    }
+  };
+
+  const deleteListing = async (id: number) => {
+    if (!confirm('Are you sure you want to completely delete this listing? This action cannot be undone.')) return;
+    const supabase = createClient();
+    const { error } = await supabase.from('listings').delete().eq('listing_id', id);
+    if (error) toast.error('Failed to delete listing');
+    else {
+      toast.success('Listing completely deleted');
+      window.location.reload();
+    }
+  };
+
   return (
     <div>
       <div className="tabs" style={{ marginBottom: '24px' }}>
         <div className={`tab ${activeTab === 'overview' ? 'active' : ''}`} onClick={() => setActiveTab('overview')}>Overview</div>
+        <div className={`tab ${activeTab === 'users' ? 'active' : ''}`} onClick={() => setActiveTab('users')}>Users & Listings</div>
         <div className={`tab ${activeTab === 'verifications' ? 'active' : ''}`} onClick={() => setActiveTab('verifications')}>ID Verifications</div>
         <div className={`tab ${activeTab === 'complaints' ? 'active' : ''}`} onClick={() => setActiveTab('complaints')}>Complaints</div>
       </div>
 
       {activeTab === 'overview' && (
         <div id="tab-overview">
-          <div className="stats-row" style={{ marginBottom: '24px' }}>
+          <div className="grid-4" style={{ marginBottom: '24px' }}>
             <div className="stat-card">
               <div className="stat-label">Total Listings</div>
-              <div className="stat-value" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Home size={28} color="var(--primary)" /> {stats.totalListings}
-              </div>
+              <div className="stat-value">{stats.totalListings}</div>
             </div>
             <div className="stat-card">
-              <div className="stat-label">Pending Complaints</div>
-              <div className="stat-value" style={{ display: 'flex', alignItems: 'center', gap: '8px', color: stats.openComplaints > 0 ? 'var(--danger)' : 'var(--success)' }}>
-                <ShieldAlert size={28} /> {stats.openComplaints}
-              </div>
+              <div className="stat-label">Total Users</div>
+              <div className="stat-value">{stats.totalUsers || 0}</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-label">Open Complaints</div>
+              <div className="stat-value" style={{ color: stats.openComplaints > 0 ? 'var(--danger)' : 'var(--emerald)' }}>{stats.openComplaints}</div>
             </div>
             <div className="stat-card">
               <div className="stat-label">Pending Verifications</div>
-              <div className="stat-value" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <UserCheck size={28} color="var(--amber)" /> {verifications.filter(v => v.status === 'pending').length}
-              </div>
+              <div className="stat-value">{verifications.filter(v => v.status === 'pending').length}</div>
             </div>
           </div>
 
-          <div className="grid-2">
+          <div className="grid-2" style={{ marginBottom: '24px' }}>
             <div className="card">
-              <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: 0, color: 'var(--navy)' }}>
-                <TrendingUp size={20} /> Average Rent by Zone
-              </h3>
+              <h3 style={{ marginTop: 0, color: 'var(--navy)' }}>Average Rent by Zone</h3>
               {stats.avgRentByZone.length === 0 ? <p className="text-gray">Not enough data.</p> : (
-                <div className="table-responsive" style={{ border: 'none', boxShadow: 'none' }}>
-                  <table className="table">
-                    <thead><tr><th>Zone</th><th style={{ textAlign: 'right' }}>Avg Rent</th></tr></thead>
-                    <tbody>
-                      {stats.avgRentByZone.map(z => (
-                        <tr key={z.zone}>
-                          <td>{z.zone}</td>
-                          <td style={{ textAlign: 'right', fontWeight: 600 }}>৳ {z.avg}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <RentChart data={stats.avgRentByZone} />
               )}
             </div>
 
             <div className="card">
-              <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: 0, color: 'var(--navy)' }}>
-                <TrendingUp size={20} /> Demand vs Supply
-              </h3>
+              <h3 style={{ marginTop: 0, color: 'var(--navy)' }}>Demand vs Supply</h3>
               {stats.seekingVsListings.length === 0 ? <p className="text-gray">Not enough data.</p> : (
-                <div className="table-responsive" style={{ border: 'none', boxShadow: 'none' }}>
-                  <table className="table">
-                    <thead><tr><th>Zone</th><th style={{ textAlign: 'center' }}>Seeking</th><th style={{ textAlign: 'center' }}>Available Listings</th></tr></thead>
-                    <tbody>
-                      {stats.seekingVsListings.map(z => (
-                        <tr key={z.zone}>
-                          <td>{z.zone}</td>
-                          <td style={{ textAlign: 'center' }}>{z.seeking}</td>
-                          <td style={{ textAlign: 'center' }}>{z.listings}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <DemandChart data={stats.seekingVsListings} />
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'users' && (
+        <div id="tab-users">
+          <div className="card" style={{ marginBottom: '24px' }}>
+            <h3 style={{ marginTop: 0, color: 'var(--navy)' }}>Manage All Users</h3>
+            <div className="table-responsive">
+              <table className="table">
+                <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Action</th></tr></thead>
+                <tbody>
+                  {allUsers.map(u => (
+                    <tr key={u.id}>
+                      <td><strong>{u.name}</strong></td>
+                      <td>{u.email}</td>
+                      <td><span className={`badge badge-${u.role === 'admin' ? 'navy' : u.role === 'landlord' ? 'gold' : 'blue'}`}>{u.role}</span></td>
+                      <td>
+                        {u.status === 'suspended' ? <span className="badge badge-red">Suspended</span> : <span className="badge badge-green">Active</span>}
+                      </td>
+                      <td>
+                        {u.status === 'suspended' 
+                          ? <button className="btn btn-success btn-sm" onClick={() => setUserStatus(u.id, 'active')}>Activate</button>
+                          : <button className="btn btn-outline btn-sm" onClick={() => setUserStatus(u.id, 'suspended')}>Suspend</button>
+                        }
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="card">
+            <h3 style={{ marginTop: 0, color: 'var(--navy)' }}>Manage All Listings</h3>
+            <div className="table-responsive">
+              <table className="table">
+                <thead><tr><th>ID</th><th>Title</th><th>Zone</th><th>Owner</th><th>Status</th><th>Action</th></tr></thead>
+                <tbody>
+                  {allListings.map(l => (
+                    <tr key={l.listing_id}>
+                      <td>{l.listing_id}</td>
+                      <td><a href={`/listings/${l.listing_id}`} style={{ color: 'var(--navy)', fontWeight: 600 }}>{l.title}</a></td>
+                      <td>{l.zone}</td>
+                      <td>{l.ownerName || l.ownerEmail?.split('@')[0] || 'Unknown'}</td>
+                      <td><span dangerouslySetInnerHTML={{ __html: statusBadge(l.status) }} /></td>
+                      <td><button className="btn btn-danger btn-sm" onClick={() => deleteListing(l.listing_id)}>Delete</button></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
