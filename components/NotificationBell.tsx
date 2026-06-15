@@ -3,12 +3,14 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
-import { Bell } from 'lucide-react';
+import { Bell, Check } from 'lucide-react';
+import { markNotificationAsRead, markAllNotificationsAsRead } from '@/app/actions/notifications';
 
 export default function NotificationBell() {
   const [open, setOpen] = useState(false);
   const [unread, setUnread] = useState(0);
   const [notifications, setNotifications] = useState<any[]>([]);
+  const [mounted, setMounted] = useState(false);
   const supabase = createClient();
   const ref = useRef<HTMLDivElement>(null);
 
@@ -30,6 +32,7 @@ export default function NotificationBell() {
   };
 
   useEffect(() => {
+    setMounted(true);
     fetchNotifs();
     const interval = setInterval(fetchNotifs, 60000);
     return () => clearInterval(interval);
@@ -45,21 +48,22 @@ export default function NotificationBell() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleOpen = async () => {
+  const handleOpen = () => {
     setOpen(!open);
-    if (!open && unread > 0) {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        await supabase
-          .from('notifications')
-          .update({ is_read: true })
-          .eq('user_id', user.id)
-          .eq('is_read', false);
-        setUnread(0);
-        // Refresh after short delay
-        setTimeout(fetchNotifs, 1000);
-      }
-    }
+  };
+
+  const handleMarkAllAsRead = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    await markAllNotificationsAsRead();
+    fetchNotifs();
+  };
+
+  const handleMarkAsRead = async (e: React.MouseEvent, id: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    await markNotificationAsRead(id);
+    fetchNotifs();
   };
 
   return (
@@ -68,7 +72,7 @@ export default function NotificationBell() {
         onClick={handleOpen}
         style={{ 
           background: 'none', border: 'none', cursor: 'pointer', 
-          color: 'var(--ink)', display: 'flex', alignItems: 'center', 
+          color: 'var(--navy)', display: 'flex', alignItems: 'center', 
           justifyContent: 'center', padding: '8px', borderRadius: '50%'
         }}
       >
@@ -90,35 +94,74 @@ export default function NotificationBell() {
           position: 'absolute', top: 'calc(100% + 10px)', right: 0,
           background: 'white', border: '1px solid var(--border)',
           borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-lg)',
-          width: 320, maxHeight: 400, overflowY: 'auto', zIndex: 1000,
-          display: 'flex', flexDirection: 'column'
+          width: 320, zIndex: 1000,
+          display: 'flex', flexDirection: 'column',
+          padding: '16px'
         }}>
-          <div style={{ padding: '16px', borderBottom: '1px solid var(--border)', fontWeight: 600 }}>
+          <div style={{ fontWeight: 600, color: 'var(--navy)', borderBottom: '1px solid var(--border)', paddingBottom: '8px', marginBottom: '8px' }}>
             Notifications
           </div>
-          {notifications.length === 0 ? (
-            <div style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--ink-muted)' }}>
-              No notifications yet.
-            </div>
-          ) : (
-            notifications.map((n) => (
-              <Link
-                key={n.notif_id}
-                href={n.link ? `/${n.link.replace('.html', '')}` : '#'}
-                onClick={() => setOpen(false)}
-                style={{
-                  padding: '16px', borderBottom: '1px solid var(--border)',
-                  background: n.is_read ? 'white' : 'var(--emerald-soft)',
-                  display: 'flex', flexDirection: 'column', gap: '4px',
-                  textDecoration: 'none', color: 'var(--ink)'
-                }}
-              >
-                <div style={{ fontSize: 14 }}>{n.message}</div>
-                <div style={{ fontSize: 12, color: 'var(--ink-muted)' }}>
-                  {new Date(n.created_at).toLocaleString()}
+
+          <div style={{ maxHeight: 300, overflowY: 'auto', marginBottom: '8px', fontSize: 13, color: 'var(--gray)' }}>
+            {notifications.length === 0 ? (
+              <div style={{ padding: '10px 0', textAlign: 'center' }}>
+                No notifications
+              </div>
+            ) : (
+              notifications.map((n) => (
+                <div key={n.notif_id} style={{
+                  padding: '10px', 
+                  borderBottom: '1px solid #eee',
+                  background: n.is_read ? 'transparent' : '#f0f9ff',
+                  borderRadius: '4px',
+                  marginBottom: '2px'
+                }}>
+                  <div style={{
+                    fontWeight: n.is_read ? 'normal' : 'bold',
+                    color: 'var(--navy)',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'flex-start',
+                    gap: '8px'
+                  }}>
+                    {n.link ? (
+                      <Link 
+                        href={`/${n.link.replace('.html', '')}`} 
+                        onClick={() => setOpen(false)}
+                        style={{ textDecoration: 'none', color: 'inherit', flex: 1 }}
+                      >
+                        {n.message}
+                      </Link>
+                    ) : (
+                      <span style={{ flex: 1 }}>{n.message}</span>
+                    )}
+
+                    {!n.is_read && (
+                      <button 
+                        className="btn btn-outline btn-sm" 
+                        style={{ padding: '2px 6px', border: 'none', background: 'transparent' }}
+                        onClick={(e) => handleMarkAsRead(e, n.notif_id)}
+                        title="Mark as read"
+                      >
+                        <Check size={14} />
+                      </button>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 11, color: '#888', marginTop: 4 }}>
+                    {mounted ? new Date(n.created_at).toLocaleString() : ''}
+                  </div>
                 </div>
-              </Link>
-            ))
+              ))
+            )}
+          </div>
+
+          {notifications.length > 0 && (
+            <button 
+              className="btn btn-outline btn-block btn-sm" 
+              onClick={handleMarkAllAsRead}
+            >
+              Mark all as read
+            </button>
           )}
         </div>
       )}
