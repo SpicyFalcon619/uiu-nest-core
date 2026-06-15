@@ -33,9 +33,36 @@ export default function NotificationBell() {
 
   useEffect(() => {
     setMounted(true);
-    fetchNotifs();
+    let channel: any;
+
+    const init = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      await fetchNotifs();
+
+      // Set up realtime subscription
+      channel = supabase
+        .channel('realtime_notifications')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` },
+          (payload) => {
+            fetchNotifs();
+          }
+        )
+        .subscribe();
+    };
+
+    init();
+    
+    // Fallback polling just in case realtime drops
     const interval = setInterval(fetchNotifs, 60000);
-    return () => clearInterval(interval);
+    
+    return () => {
+      clearInterval(interval);
+      if (channel) supabase.removeChannel(channel);
+    };
   }, []);
 
   useEffect(() => {
@@ -126,7 +153,7 @@ export default function NotificationBell() {
                   }}>
                     {n.link ? (
                       <Link 
-                        href={`/${n.link.replace('.html', '')}`} 
+                        href={n.link.replace('.html', '').startsWith('/') ? n.link.replace('.html', '') : `/${n.link.replace('.html', '')}`} 
                         onClick={() => setOpen(false)}
                         style={{ textDecoration: 'none', color: 'inherit', flex: 1 }}
                       >
