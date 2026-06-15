@@ -7,9 +7,13 @@ import type { DashboardData, Profile } from '@/types';
 import { fmt, conditionLabel, conditionColor, statusBadge, propertyTypeLabel } from '@/lib/utils';
 import CustomSelect from '@/components/CustomSelect';
 import ListingCard from '@/components/ListingCard';
+import VerificationModal from '@/components/modals/VerificationModal';
+import { useRouter } from 'next/navigation';
 
 export default function DashboardContent({ data, user }: { data: DashboardData; user: Profile }) {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState('listings');
+  const [isVerifModalOpen, setIsVerifModalOpen] = useState(false);
 
   const { myListings, myItems, watched, offersSent, offersRecv, appsSent, appsRecv, hasPreferences, verifStatus, mySeeking, seekRespRecv, seekRespSent } = data;
 
@@ -38,11 +42,22 @@ export default function DashboardContent({ data, user }: { data: DashboardData; 
 
       <div className="stats-row">
         {user.role !== 'admin' && (
-          <div className="stat-card">
+          <div 
+            className="stat-card" 
+            onClick={() => {
+              if (verifStatus === 'none' || verifStatus === 'rejected') {
+                setIsVerifModalOpen(true);
+              }
+            }}
+            style={{ cursor: (verifStatus === 'none' || verifStatus === 'rejected') ? 'pointer' : 'default' }}
+          >
             <div className="stat-label">Verification</div>
             <div className="stat-value" style={{ color: verifColor, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '18px' }}>
               {verifText}
             </div>
+            {(verifStatus === 'none' || verifStatus === 'rejected') && (
+              <div style={{ fontSize: '12px', color: 'var(--gold)', marginTop: '8px', fontWeight: 'bold' }}>Click to verify</div>
+            )}
           </div>
         )}
         <div className="stat-card">
@@ -489,6 +504,15 @@ export default function DashboardContent({ data, user }: { data: DashboardData; 
       )}
         </div>
       </div>
+      <VerificationModal 
+        isOpen={isVerifModalOpen} 
+        onClose={() => setIsVerifModalOpen(false)} 
+        userId={user.id} 
+        onSuccess={() => {
+          setIsVerifModalOpen(false);
+          router.refresh();
+        }} 
+      />
     </div>
   );
 }
