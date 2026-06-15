@@ -219,8 +219,8 @@ export default function ProfileContent({
                   onChange={(v) => setPrefsForm({...prefsForm, sleep_schedule: v})}
                   options={[
                     { value: 'flexible', label: 'Flexible / Varies' },
-                    { value: 'early_bird', label: 'Early Bird (Sleep early, wake early)' },
-                    { value: 'night_owl', label: 'Night Owl (Sleep late, wake late)' }
+                    { value: 'early', label: 'Early Bird (Sleep early, wake early)' },
+                    { value: 'late', label: 'Night Owl (Sleep late, wake late)' }
                   ]}
                 />
               </div>
@@ -230,9 +230,8 @@ export default function ProfileContent({
                   value={prefsForm.diet} 
                   onChange={(v) => setPrefsForm({...prefsForm, diet: v})}
                   options={[
-                    { value: 'any', label: 'No specific restrictions' },
-                    { value: 'non_veg', label: 'Non-Vegetarian' },
-                    { value: 'veg', label: 'Vegetarian' },
+                    { value: 'non_veg', label: 'No specific restrictions / Non-Veg' },
+                    { value: 'vegetarian', label: 'Vegetarian' },
                     { value: 'halal_strict', label: 'Strict Halal / Religious restrictions' }
                   ]}
                 />
@@ -246,9 +245,9 @@ export default function ProfileContent({
                   value={prefsForm.guest_policy} 
                   onChange={(v) => setPrefsForm({...prefsForm, guest_policy: v})}
                   options={[
-                    { value: 'flexible', label: 'Flexible (Frequent guests fine)' },
-                    { value: 'weekends_only', label: 'Weekends Only' },
-                    { value: 'no_guests', label: 'No Guests allowed' }
+                    { value: 'allowed', label: 'Flexible (Frequent guests fine)' },
+                    { value: 'restricted', label: 'Restricted (Weekends Only)' },
+                    { value: 'not_allowed', label: 'Not Allowed' }
                   ]}
                 />
               </div>
@@ -260,7 +259,7 @@ export default function ProfileContent({
                   options={[
                     { value: 'moderate', label: 'Moderate (Normal activity fine)' },
                     { value: 'quiet', label: 'Quiet (Need pin-drop silence)' },
-                    { value: 'lively', label: 'Lively (Music, chatting is fine)' }
+                    { value: 'noisy', label: 'Lively (Music, chatting is fine)' }
                   ]}
                 />
               </div>
