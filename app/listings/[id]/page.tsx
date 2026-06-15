@@ -6,6 +6,8 @@ import WatchlistButton from '@/components/WatchlistButton';
 import ReviewsSection from '@/components/ReviewsSection';
 import { notFound } from 'next/navigation';
 import ListingMap from '@/components/ListingMap';
+import CommentSection from '@/components/comments/CommentSection';
+import UserRating from '@/components/ratings/UserRating';
 
 export const metadata = {
   title: 'Listing Details - UIUNest',
@@ -50,6 +52,48 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
       .eq('user_id', user.id)
       .eq('listing_id', parseInt(id));
     isWatched = (count || 0) > 0;
+  }
+
+  // Fetch comments
+  const { data: commentsData } = await supabase
+    .from('listing_comments')
+    .select(`
+      *,
+      user:profiles!listing_comments_user_id_fkey(name, profile_pic)
+    `)
+    .eq('listing_id', parseInt(id))
+    .order('created_at', { ascending: true });
+
+  const comments = commentsData || [];
+
+  let finalComments = comments;
+  if (isLoggedIn) {
+    const { data: userVotes } = await supabase
+      .from('listing_comment_votes')
+      .select('comment_id, vote_type')
+      .eq('user_id', user.id);
+      
+    if (userVotes && userVotes.length > 0) {
+      finalComments = comments.map(c => {
+        const vote = userVotes.find(v => v.comment_id === c.comment_id);
+        return vote ? { ...c, user_vote: vote.vote_type } : c;
+      });
+    }
+  }
+
+  // Fetch ratings for the landlord
+  let averageRating = 0;
+  let totalRatings = 0;
+  if (listing.user_id) {
+    const { data: ratingsData } = await supabase
+      .from('user_ratings')
+      .select('rating')
+      .eq('target_user_id', listing.user_id);
+      
+    if (ratingsData && ratingsData.length > 0) {
+      totalRatings = ratingsData.length;
+      averageRating = ratingsData.reduce((acc: number, curr: any) => acc + curr.rating, 0) / totalRatings;
+    }
   }
 
   return (
@@ -119,6 +163,16 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
             isLoggedIn={isLoggedIn}
             currentUserId={user?.id}
           />
+
+          <div style={{ marginTop: '32px' }}>
+            <CommentSection 
+              itemId={listing.listing_id}
+              initialComments={finalComments as any}
+              isLoggedIn={isLoggedIn}
+              currentUserId={user?.id}
+              type="listing"
+            />
+          </div>
         </div>
 
         {/* Right Column: Cost Breakdown & Owner info */}
@@ -163,7 +217,16 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
               </div>
               <div>
                 <div style={{ fontWeight: 600 }}>{owner.name}</div>
-                <div style={{ fontSize: '12px', color: 'var(--ink-muted)', textTransform: 'capitalize' }}>{owner.role}</div>
+                {listing.user_id && (
+                  <UserRating 
+                    targetUserId={listing.user_id}
+                    initialRating={averageRating}
+                    totalRatings={totalRatings}
+                    isLoggedIn={isLoggedIn}
+                    currentUserId={user?.id}
+                  />
+                )}
+                <div style={{ fontSize: '12px', color: 'var(--ink-muted)', textTransform: 'capitalize', marginTop: '4px' }}>{owner.role}</div>
               </div>
             </div>
 

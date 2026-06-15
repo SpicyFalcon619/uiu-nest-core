@@ -24,9 +24,10 @@ interface CommentSectionProps {
   initialComments: Comment[];
   isLoggedIn: boolean;
   currentUserId?: string;
+  type?: 'item' | 'listing';
 }
 
-export default function CommentSection({ itemId, initialComments, isLoggedIn, currentUserId }: CommentSectionProps) {
+export default function CommentSection({ itemId, initialComments, isLoggedIn, currentUserId, type = 'item' }: CommentSectionProps) {
   const [comments, setComments] = useState<Comment[]>(initialComments);
   const [newComment, setNewComment] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -36,7 +37,7 @@ export default function CommentSection({ itemId, initialComments, isLoggedIn, cu
     if (!newComment.trim() || !isLoggedIn) return;
 
     setIsSubmitting(true);
-    const res = await addComment(itemId, newComment);
+    const res = await addComment(itemId, newComment, type);
     if (res.error) {
       toast.error(res.error);
     } else {
@@ -49,7 +50,7 @@ export default function CommentSection({ itemId, initialComments, isLoggedIn, cu
     setIsSubmitting(false);
   };
 
-  const handleVote = async (commentId: number, type: 1 | -1) => {
+  const handleVote = async (commentId: number, voteType: 1 | -1) => {
     if (!isLoggedIn) {
       toast.error('You must be logged in to vote.');
       return;
@@ -60,16 +61,16 @@ export default function CommentSection({ itemId, initialComments, isLoggedIn, cu
       if (c.comment_id === commentId) {
         let newUp = c.upvotes;
         let newDown = c.downvotes;
-        let newVote = type;
+        let newVote = voteType;
 
-        if (c.user_vote === type) {
+        if (c.user_vote === voteType) {
           // Toggle off
           newVote = null as any;
-          if (type === 1) newUp--; else newDown--;
+          if (voteType === 1) newUp--; else newDown--;
         } else {
           if (c.user_vote === 1) newUp--;
           if (c.user_vote === -1) newDown--;
-          if (type === 1) newUp++; else newDown++;
+          if (voteType === 1) newUp++; else newDown++;
         }
 
         return { ...c, upvotes: Math.max(0, newUp), downvotes: Math.max(0, newDown), user_vote: newVote };
@@ -77,7 +78,7 @@ export default function CommentSection({ itemId, initialComments, isLoggedIn, cu
       return c;
     }));
 
-    const res = await voteComment(commentId, type, itemId);
+    const res = await voteComment(commentId, voteType, itemId, type);
     if (res.error) {
       toast.error(res.error);
       // Fallback: reload page
