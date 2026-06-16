@@ -2,14 +2,22 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { CheckCircle, Clock, XCircle, UserCheck, Trash2, Building2, ShoppingBag, Search, Heart, List, FileText, Settings } from 'lucide-react';
+import { CheckCircle, Clock, XCircle, Building2, ShoppingBag, Search, Heart, List, FileText, Settings, Bell, RefreshCw } from 'lucide-react';
 import type { DashboardData, Profile } from '@/types';
 import { fmt, conditionLabel, conditionColor, statusBadge, propertyTypeLabel } from '@/lib/utils';
-import CustomSelect from '@/components/CustomSelect';
 import ListingCard from '@/components/ListingCard';
 import VerificationModal from '@/components/modals/VerificationModal';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { markNotificationAsRead } from '@/app/actions/notifications';
+import { markNotificationAsRead, markAllNotificationsAsRead } from '@/app/actions/notifications';
+import {
+  acceptOffer, rejectOffer, counterOffer, withdrawOffer, acceptCounterOffer,
+} from '@/app/actions/offers';
+import {
+  acceptApplication, rejectApplication,
+  updateListingStatus, updateItemStatus,
+  acceptSeekResponse, rejectSeekResponse,
+} from '@/app/actions/applications';
+import { toast } from 'sonner';
 
 export default function DashboardContent({ data, user }: { data: DashboardData; user: Profile }) {
   const router = useRouter();
@@ -18,61 +26,159 @@ export default function DashboardContent({ data, user }: { data: DashboardData; 
   const [isVerifModalOpen, setIsVerifModalOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [notifications, setNotifications] = useState<any[]>(data.notifications || []);
+  const [offersRecv, setOffersRecv] = useState<any[]>(data.offersRecv);
+  const [offersSent, setOffersSent] = useState<any[]>(data.offersSent);
+  const [appsRecv, setAppsRecv] = useState<any[]>(data.appsRecv);
+  const [seekRespRecv, setSeekRespRecv] = useState<any[]>(data.seekRespRecv || []);
+  const [myListings, setMyListings] = useState<any[]>(data.myListings);
+  const [myItems, setMyItems] = useState<any[]>(data.myItems);
+  const [counterModal, setCounterModal] = useState<{ offerId: number; title: string } | null>(null);
+  const [counterPrice, setCounterPrice] = useState('');
+  const [actionLoading, setActionLoading] = useState<number | null>(null);
 
-  useEffect(() => {
-    setMounted(true);
-    const tab = searchParams.get('tab');
-    if (tab) setActiveTab(tab);
-  }, [searchParams]);
+  useEffect(() => { setMounted(true); }, []);
+  useEffect(() => { const tab = searchParams.get('tab'); if (tab) setActiveTab(tab); }, [searchParams]);
 
-  const { myListings, myItems, watched, offersSent, offersRecv, appsSent, appsRecv, hasPreferences, verifStatus, mySeeking, seekRespRecv, seekRespSent } = data;
+  const switchTab = (tab: string) => { setActiveTab(tab); router.push(`/dashboard?tab=${tab}`); };
+
+  const wrap = async (id: number, fn: () => Promise<any>) => {
+    setActionLoading(id);
+    const res = await fn();
+    setActionLoading(null);
+    if (res?.error) toast.error(res.error);
+    return res;
+  };
+
+  const { watched, mySeeking, seekRespSent, hasPreferences, verifStatus } = data;
 
   const activeOffersCount = offersSent.filter(o => o.status === 'pending' || o.status === 'countered').length +
-                            offersRecv.filter(o => o.status === 'pending' || o.status === 'countered').length;
+    offersRecv.filter(o => o.status === 'pending' || o.status === 'countered').length;
 
-  const compatStatus = (user.role === 'student' && hasPreferences) ? (
-    <>Complete <CheckCircle style={{ width: '24px', height: '24px', verticalAlign: '-4px' }} /></>
-  ) : 'Setup Required';
+  const compatStatus = (user.role === 'student' && hasPreferences)
+    ? <><CheckCircle size={16} /> Complete</>
+    : 'Setup Required';
   const compatColor = (user.role === 'student' && hasPreferences) ? 'var(--success)' : 'var(--warning)';
 
   let verifText: React.ReactNode = 'Unverified';
   let verifColor = 'var(--gray)';
-  if (verifStatus === 'pending') { verifText = <>Pending <Clock style={{ width: '24px', height: '24px', verticalAlign: '-4px' }} /></>; verifColor = 'var(--amber)'; }
-  else if (verifStatus === 'approved') { verifText = <>Verified <CheckCircle style={{ width: '24px', height: '24px', verticalAlign: '-4px' }} /></>; verifColor = 'var(--success)'; }
-  else if (verifStatus === 'rejected') { verifText = <>Rejected <XCircle style={{ width: '24px', height: '24px', verticalAlign: '-4px' }} /></>; verifColor = 'var(--danger)'; }
-
-  const switchTab = (tab: string) => {
-    setActiveTab(tab);
-    router.push(`/dashboard?tab=${tab}`);
-  };
+  if (verifStatus === 'pending')  { verifText = <><Clock size={16} /> Pending</>;    verifColor = 'var(--amber)'; }
+  if (verifStatus === 'approved') { verifText = <><CheckCircle size={16} /> Verified</>; verifColor = 'var(--success)'; }
+  if (verifStatus === 'rejected') { verifText = <><XCircle size={16} /> Rejected</>;  verifColor = 'var(--danger)'; }
 
   const handleMarkRead = async (notifId: number) => {
     setNotifications(prev => prev.map(n => n.notif_id === notifId ? { ...n, is_read: true } : n));
     await markNotificationAsRead(notifId);
   };
 
+  const handleMarkAllRead = async () => {
+    setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+    await markAllNotificationsAsRead();
+  };
+
+  // ── Offer actions ─────────────────────────────────────────────
+  const doAcceptOffer = async (offerId: number) => {
+    const res = await wrap(offerId, () => acceptOffer(offerId));
+    if (res?.success) {
+      toast.success('Offer accepted!');
+      setOffersRecv(prev => prev.map(o => o.offer_id === offerId ? { ...o, status: 'accepted' } : o));
+    }
+  };
+  const doRejectOffer = async (offerId: number) => {
+    const res = await wrap(offerId, () => rejectOffer(offerId));
+    if (res?.success) {
+      toast.success('Offer rejected.');
+      setOffersRecv(prev => prev.map(o => o.offer_id === offerId ? { ...o, status: 'rejected' } : o));
+    }
+  };
+  const doCounterOffer = async () => {
+    if (!counterModal) return;
+    const price = Number(counterPrice);
+    if (!price || price < 1) { toast.error('Enter a valid counter price.'); return; }
+    const res = await wrap(counterModal.offerId, () => counterOffer(counterModal.offerId, price));
+    if (res?.success) {
+      toast.success('Counter-offer sent!');
+      setOffersRecv(prev => prev.map(o => o.offer_id === counterModal.offerId ? { ...o, status: 'countered', counter_price: price } : o));
+      setCounterModal(null); setCounterPrice('');
+    }
+  };
+  const doWithdrawOffer = async (offerId: number) => {
+    if (!confirm('Withdraw this offer?')) return;
+    const res = await wrap(offerId, () => withdrawOffer(offerId));
+    if (res?.success) {
+      toast.success('Offer withdrawn.');
+      setOffersSent(prev => prev.map(o => o.offer_id === offerId ? { ...o, status: 'withdrawn' } : o));
+    }
+  };
+  const doAcceptCounter = async (offerId: number) => {
+    const res = await wrap(offerId, () => acceptCounterOffer(offerId));
+    if (res?.success) {
+      toast.success('Counter-offer accepted!');
+      setOffersSent(prev => prev.map(o => o.offer_id === offerId ? { ...o, status: 'accepted' } : o));
+    }
+  };
+
+  // ── Application actions ───────────────────────────────────────
+  const doAcceptApp = async (appId: number) => {
+    const res = await wrap(appId, () => acceptApplication(appId));
+    if (res?.success) {
+      toast.success('Application accepted! Applicant notified.');
+      setAppsRecv(prev => prev.map(a => a.application_id === appId ? { ...a, status: 'accepted' } : a));
+    }
+  };
+  const doRejectApp = async (appId: number) => {
+    const res = await wrap(appId, () => rejectApplication(appId));
+    if (res?.success) {
+      toast.success('Application rejected.');
+      setAppsRecv(prev => prev.map(a => a.application_id === appId ? { ...a, status: 'rejected' } : a));
+    }
+  };
+
+  // ── Status changes ────────────────────────────────────────────
+  const doUpdateListingStatus = async (listingId: number, status: string) => {
+    const res = await wrap(listingId, () => updateListingStatus(listingId, status));
+    if (res?.success) {
+      toast.success('Listing status updated.');
+      setMyListings(prev => prev.map(l => (l.listing_id || l.id) === listingId ? { ...l, status } : l));
+    }
+  };
+  const doUpdateItemStatus = async (itemId: number, status: string) => {
+    const res = await wrap(itemId, () => updateItemStatus(itemId, status));
+    if (res?.success) {
+      toast.success('Item status updated.');
+      setMyItems(prev => prev.map(i => (i.item_id || i.id) === itemId ? { ...i, status } : i));
+    }
+  };
+
+  // ── Seek response actions ─────────────────────────────────────
+  const doAcceptSeek = async (responseId: number) => {
+    const res = await wrap(responseId, () => acceptSeekResponse(responseId));
+    if (res?.success) {
+      toast.success('Response accepted! Responder notified.');
+      setSeekRespRecv(prev => prev.map(r => r.response_id === responseId ? { ...r, status: 'accepted' } : r));
+    }
+  };
+  const doRejectSeek = async (responseId: number) => {
+    const res = await wrap(responseId, () => rejectSeekResponse(responseId));
+    if (res?.success) {
+      toast.success('Response rejected.');
+      setSeekRespRecv(prev => prev.map(r => r.response_id === responseId ? { ...r, status: 'rejected' } : r));
+    }
+  };
+
+  const statusBadgeEl = (status: string) => <span dangerouslySetInnerHTML={{ __html: statusBadge(status) }} />;
+  const isLoading = (id: number) => actionLoading === id;
+
   return (
     <div className="container">
       <h1 className="page-title">Welcome back, {user.name}</h1>
 
+      {/* ── Stat cards ── */}
       <div className="stats-row">
         {user.role !== 'admin' && (
-          <div 
-            className="stat-card" 
-            onClick={() => {
-              if (verifStatus === 'none' || verifStatus === 'rejected') {
-                setIsVerifModalOpen(true);
-              }
-            }}
-            style={{ cursor: (verifStatus === 'none' || verifStatus === 'rejected') ? 'pointer' : 'default' }}
-          >
+          <div className="stat-card" onClick={() => { if (verifStatus === 'none' || verifStatus === 'rejected') setIsVerifModalOpen(true); }} style={{ cursor: (verifStatus === 'none' || verifStatus === 'rejected') ? 'pointer' : 'default' }}>
             <div className="stat-label">Verification</div>
-            <div className="stat-value" style={{ color: verifColor, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '18px' }}>
-              {verifText}
-            </div>
-            {(verifStatus === 'none' || verifStatus === 'rejected') && (
-              <div style={{ fontSize: '12px', color: 'var(--gold)', marginTop: '8px', fontWeight: 'bold' }}>Click to verify</div>
-            )}
+            <div className="stat-value" style={{ color: verifColor, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '18px' }}>{verifText}</div>
+            {(verifStatus === 'none' || verifStatus === 'rejected') && <div style={{ fontSize: '12px', color: 'var(--gold)', marginTop: '6px', fontWeight: 600 }}>Click to verify</div>}
           </div>
         )}
         <div className="stat-card" onClick={() => switchTab('listings')} style={{ cursor: 'pointer' }}>
@@ -92,63 +198,45 @@ export default function DashboardContent({ data, user }: { data: DashboardData; 
         {user.role === 'student' && (
           <div className="stat-card" onClick={() => switchTab('preferences')} style={{ cursor: 'pointer' }}>
             <div className="stat-label">Compatibility</div>
-            <div className="stat-value" style={{ color: compatColor, display: 'flex', alignItems: 'center', gap: '8px', fontSize: '18px' }}>
-              {compatStatus}
-            </div>
-          </div>
-        )}
-        {user.role === 'student' && (
-          <div className="stat-card" onClick={() => switchTab('seeking')} style={{ cursor: 'pointer' }}>
-            <div className="stat-label">Seeking Posts</div>
-            <div className="stat-value">{mySeeking.length}</div>
+            <div className="stat-value" style={{ color: compatColor, display: 'flex', alignItems: 'center', gap: '6px', fontSize: '18px' }}>{compatStatus}</div>
           </div>
         )}
       </div>
 
       <div className="dashboard-layout">
+        {/* ── Sidebar ── */}
         <div className="dashboard-sidebar card" style={{ padding: '16px' }}>
-          <div className="sidebar-section-title" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--gray)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px', paddingLeft: '16px' }}>
-            Management
-          </div>
-          <div className={`dashboard-nav-item ${activeTab === 'listings' ? 'active' : ''}`} onClick={() => switchTab('listings')}>
-            <Building2 size={18} /> My Listings
-          </div>
-          
-          <div className={`dashboard-nav-item ${activeTab === 'items' ? 'active' : ''}`} onClick={() => switchTab('items')}>
-            <ShoppingBag size={18} /> Exchange Items
-          </div>
-          {user.role === 'student' && (
-            <>
-              <div className={`dashboard-nav-item ${activeTab === 'seeking' ? 'active' : ''}`} onClick={() => switchTab('seeking')}>
-                <Search size={18} /> Looking For
-              </div>
-              <div className={`dashboard-nav-item ${activeTab === 'preferences' ? 'active' : ''}`} onClick={() => switchTab('preferences')}>
-                <Settings size={18} /> Preferences
-              </div>
-            </>
-          )}
-          
-          <div className="sidebar-section-title" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--gray)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px', marginTop: '16px', paddingLeft: '16px' }}>
-            Interactions
-          </div>
-          <div className={`dashboard-nav-item ${activeTab === 'watch' ? 'active' : ''}`} onClick={() => switchTab('watch')}>
-            <Heart size={18} /> Watchlist
-          </div>
-          <div className={`dashboard-nav-item ${activeTab === 'offers' ? 'active' : ''}`} onClick={() => switchTab('offers')}>
-            <List size={18} /> Offers
-          </div>
-          
-          <div className="sidebar-section-title" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--gray)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px', marginTop: '16px', paddingLeft: '16px' }}>
-            Paperwork
-          </div>
-          <div className={`dashboard-nav-item ${activeTab === 'applications' ? 'active' : ''}`} onClick={() => switchTab('applications')}>
-            <FileText size={18} /> Housing Applications
-          </div>
+          <div className="sidebar-section-title" style={{ fontSize: '11px', fontWeight: 700, color: 'var(--ink-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '6px', paddingLeft: '14px' }}>Management</div>
+          {[
+            { id: 'listings',     icon: <Building2 size={16} />,  label: 'My Listings' },
+            { id: 'items',        icon: <ShoppingBag size={16} />, label: 'Exchange Items' },
+            ...(user.role === 'student' ? [
+              { id: 'seeking',    icon: <Search size={16} />,      label: 'Looking For' },
+              { id: 'preferences',icon: <Settings size={16} />,    label: 'Preferences' },
+            ] : []),
+          ].map(({ id, icon, label }) => (
+            <div key={id} className={`dashboard-nav-item ${activeTab === id ? 'active' : ''}`} onClick={() => switchTab(id)}>
+              {icon} {label}
+            </div>
+          ))}
+
+          <div className="sidebar-section-title" style={{ fontSize: '11px', fontWeight: 700, color: 'var(--ink-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '6px', marginTop: '18px', paddingLeft: '14px' }}>Interactions</div>
+          {[
+            { id: 'watch',        icon: <Heart size={16} />,       label: 'Watchlist' },
+            { id: 'offers',       icon: <List size={16} />,        label: 'Offers' },
+            { id: 'applications', icon: <FileText size={16} />,    label: 'Housing Applications' },
+          ].map(({ id, icon, label }) => (
+            <div key={id} className={`dashboard-nav-item ${activeTab === id ? 'active' : ''}`} onClick={() => switchTab(id)}>
+              {icon} {label}
+            </div>
+          ))}
+
+          <div className="sidebar-section-title" style={{ fontSize: '11px', fontWeight: 700, color: 'var(--ink-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '6px', marginTop: '18px', paddingLeft: '14px' }}>Account</div>
           <div className={`dashboard-nav-item ${activeTab === 'notifications' ? 'active' : ''}`} onClick={() => switchTab('notifications')}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Clock size={18} /> Notifications</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Bell size={16} /> Notifications</span>
               {mounted && notifications.filter(n => !n.is_read).length > 0 && (
-                <span style={{ backgroundColor: 'var(--danger)', color: 'white', borderRadius: '10px', padding: '2px 6px', fontSize: '10px', fontWeight: 'bold' }}>
+                <span style={{ background: 'var(--danger)', color: '#fff', borderRadius: '10px', padding: '1px 6px', fontSize: '10px', fontWeight: 700 }}>
                   {notifications.filter(n => !n.is_read).length}
                 </span>
               )}
@@ -156,41 +244,276 @@ export default function DashboardContent({ data, user }: { data: DashboardData; 
           </div>
         </div>
 
+        {/* ── Main content ── */}
         <div className="dashboard-main">
+
+          {/* LISTINGS TAB */}
           {activeTab === 'listings' && (
-            <div id="tab-listings">
-              <div className="card">
-                <h3 style={{ marginTop: 0, color: 'var(--navy)' }}>My Properties</h3>
-                {myListings.length === 0 ? (
-                  <p style={{ color: 'var(--gray)', textAlign: 'center', padding: '24px 0' }}>
-                    You haven't listed any properties yet. <Link href="/listings/new">List property now</Link>
-                  </p>
-                ) : (
-                  <div className="table-responsive">
-                    <table className="table">
-                      <thead><tr><th>Title</th><th>Zone</th><th>Status</th><th>Total Cost</th><th>Actions</th></tr></thead>
-                      <tbody>
-                        {myListings.map(l => (
-                          <tr key={l.listing_id || l.id}>
+            <div className="card">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                <h3 style={{ margin: 0, color: 'var(--navy)' }}>My Properties</h3>
+                <Link href="/listings/new" className="btn btn-primary btn-sm">+ New Listing</Link>
+              </div>
+              {myListings.length === 0 ? (
+                <p style={{ color: 'var(--ink-muted)', textAlign: 'center', padding: '24px 0' }}>No listings yet.</p>
+              ) : (
+                <div className="table-responsive">
+                  <table className="table">
+                    <thead><tr><th>Title</th><th>Zone</th><th>Status</th><th>Total/mo</th><th>Actions</th></tr></thead>
+                    <tbody>
+                      {myListings.map(l => {
+                        const lid = l.listing_id || l.id;
+                        return (
+                          <tr key={lid}>
                             <td><strong>{l.title}</strong></td>
                             <td>{l.zone || l.zone_id}</td>
                             <td>
-                              <CustomSelect 
-                                name={`status_${l.listing_id || l.id}`} 
-                                value={l.status} 
-                                onChange={() => {}} 
-                                options={[
-                                  { value: 'available', label: 'Available' },
-                                  { value: 'occupied', label: 'Occupied' },
-                                  { value: 'soon_vacant', label: 'Soon Vacant' }
-                                ]} 
-                              />
+                              <select
+                                value={l.status}
+                                onChange={e => doUpdateListingStatus(lid, e.target.value)}
+                                disabled={isLoading(lid)}
+                                style={{ padding: '4px 8px', borderRadius: '6px', border: '1px solid var(--border)', fontSize: '13px', background: 'var(--surface-1)', cursor: 'pointer' }}
+                              >
+                                <option value="available">Available</option>
+                                <option value="occupied">Occupied</option>
+                                <option value="soon_vacant">Soon Vacant</option>
+                              </select>
                             </td>
                             <td>{fmt(l.costs?.total_monthly || 0)}</td>
                             <td>
-                              <button className="btn btn-outline btn-sm">Edit</button>
-                              <button className="btn btn-danger btn-sm" style={{ marginLeft: '4px' }}>Delete</button>
-                              <Link className="btn btn-primary btn-sm" style={{ marginLeft: '4px' }} href={`/listings/${l.listing_id || l.id}`}>View</Link>
+                              <div style={{ display: 'flex', gap: '4px' }}>
+                                <Link className="btn btn-primary btn-sm" href={`/listings/${lid}`}>View</Link>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ITEMS TAB */}
+          {activeTab === 'items' && (
+            <div className="card">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                <h3 style={{ margin: 0, color: 'var(--navy)' }}>My Marketplace Items</h3>
+                <Link href="/exchange" className="btn btn-primary btn-sm">+ Sell Item</Link>
+              </div>
+              {myItems.length === 0 ? (
+                <p style={{ color: 'var(--ink-muted)', textAlign: 'center', padding: '24px 0' }}>No items listed yet.</p>
+              ) : (
+                <div className="table-responsive">
+                  <table className="table">
+                    <thead><tr><th>Title</th><th>Price</th><th>Condition</th><th>Status</th><th>Actions</th></tr></thead>
+                    <tbody>
+                      {myItems.map(it => {
+                        const iid = it.item_id || it.id;
+                        return (
+                          <tr key={iid}>
+                            <td><strong>{it.title}</strong></td>
+                            <td>{fmt(it.asking_price || 0)}</td>
+                            <td><span className={`badge ${conditionColor(it.item_condition)}`}>{conditionLabel(it.item_condition)}</span></td>
+                            <td>
+                              <select
+                                value={it.status || 'available'}
+                                onChange={e => doUpdateItemStatus(iid, e.target.value)}
+                                disabled={isLoading(iid)}
+                                style={{ padding: '4px 8px', borderRadius: '6px', border: '1px solid var(--border)', fontSize: '13px', background: 'var(--surface-1)', cursor: 'pointer' }}
+                              >
+                                <option value="available">Available</option>
+                                <option value="sold">Sold</option>
+                                <option value="withdrawn">Withdrawn</option>
+                              </select>
+                            </td>
+                            <td>
+                              <Link className="btn btn-primary btn-sm" href={`/exchange/${iid}`}>View</Link>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* SEEKING TAB */}
+          {activeTab === 'seeking' && user.role === 'student' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div className="card">
+                <h3 style={{ marginTop: 0, color: 'var(--navy)' }}>My "Looking For" Requests</h3>
+                {(!mySeeking || mySeeking.length === 0) ? (
+                  <p style={{ color: 'var(--ink-muted)', textAlign: 'center', padding: '24px 0' }}>No requests. <Link href="/seeking">Post one</Link></p>
+                ) : (
+                  <div className="table-responsive">
+                    <table className="table">
+                      <thead><tr><th>Zone</th><th>Type</th><th>Budget</th><th>Move-in</th><th>Status</th></tr></thead>
+                      <tbody>
+                        {mySeeking.map(s => (
+                          <tr key={s.post_id || s.id}>
+                            <td>{s.zone || s.zone_id}</td>
+                            <td>{propertyTypeLabel(s.property_type)}</td>
+                            <td>{fmt(s.budget_min)} – {fmt(s.budget_max)}</td>
+                            <td>{s.move_in_date || 'Flexible'}</td>
+                            <td>{statusBadgeEl(s.status)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+              <div className="card">
+                <h3 style={{ marginTop: 0, color: 'var(--navy)' }}>Responses Received</h3>
+                {(!seekRespRecv || seekRespRecv.length === 0) ? (
+                  <p style={{ color: 'var(--ink-muted)', textAlign: 'center', padding: '12px 0' }}>No responses yet.</p>
+                ) : (
+                  <div className="table-responsive">
+                    <table className="table">
+                      <thead><tr><th>From</th><th>Message</th><th>Status</th><th>Actions</th></tr></thead>
+                      <tbody>
+                        {seekRespRecv.map(r => (
+                          <tr key={r.response_id}>
+                            <td><strong>{r.responder_name}</strong></td>
+                            <td style={{ maxWidth: 200, wordBreak: 'break-word' }}>{r.message}</td>
+                            <td>{statusBadgeEl(r.status)}</td>
+                            <td>
+                              {r.status === 'pending' && (
+                                <div style={{ display: 'flex', gap: '4px' }}>
+                                  <button className="btn btn-success btn-sm" onClick={() => doAcceptSeek(r.response_id)} disabled={isLoading(r.response_id)}>Accept</button>
+                                  <button className="btn btn-danger btn-sm" onClick={() => doRejectSeek(r.response_id)} disabled={isLoading(r.response_id)}>Reject</button>
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+              <div className="card">
+                <h3 style={{ marginTop: 0, color: 'var(--navy)' }}>Responses Sent</h3>
+                {(!seekRespSent || seekRespSent.length === 0) ? (
+                  <p style={{ color: 'var(--ink-muted)', textAlign: 'center', padding: '12px 0' }}>None sent.</p>
+                ) : (
+                  <div className="table-responsive">
+                    <table className="table">
+                      <thead><tr><th>Request</th><th>Landlord</th><th>Your Message</th><th>Status</th></tr></thead>
+                      <tbody>
+                        {seekRespSent.map(r => (
+                          <tr key={r.response_id}>
+                            <td>{r.requirements ? r.requirements.substring(0, 40) + '…' : '—'}</td>
+                            <td>{r.owner_name || '—'}</td>
+                            <td style={{ maxWidth: 200 }}>{r.message}</td>
+                            <td>{statusBadgeEl(r.status)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* PREFERENCES TAB */}
+          {activeTab === 'preferences' && user.role === 'student' && (
+            <div className="card">
+              <h3 style={{ marginTop: 0, color: 'var(--navy)' }}>Compatibility Preferences</h3>
+              <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+                <p style={{ color: 'var(--ink-muted)', maxWidth: 400, margin: '0 auto 24px' }}>
+                  {hasPreferences ? 'Your roommate matching preferences are active.' : 'Set up your preferences to unlock roommate matching.'}
+                </p>
+                <Link href="/profile" className="btn btn-primary">Manage in Profile</Link>
+              </div>
+            </div>
+          )}
+
+          {/* WATCHLIST TAB */}
+          {activeTab === 'watch' && (
+            <div className="card">
+              <h3 style={{ marginTop: 0, color: 'var(--navy)', marginBottom: '14px' }}>Saved Properties</h3>
+              {watched.length === 0 ? (
+                <p style={{ color: 'var(--ink-muted)', textAlign: 'center', padding: '24px 0' }}>Empty. <Link href="/listings">Browse listings</Link></p>
+              ) : (
+                <div className="grid-3">{watched.map(l => <ListingCard key={l.listing_id || l.id} listing={l} />)}</div>
+              )}
+            </div>
+          )}
+
+          {/* OFFERS TAB */}
+          {activeTab === 'offers' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div className="card">
+                <h3 style={{ marginTop: 0, color: 'var(--navy)' }}>Offers Received</h3>
+                {offersRecv.length === 0 ? (
+                  <p style={{ color: 'var(--ink-muted)', textAlign: 'center', padding: '12px 0' }}>No offers received.</p>
+                ) : (
+                  <div className="table-responsive">
+                    <table className="table">
+                      <thead><tr><th>Item</th><th>Buyer</th><th>Offer</th><th>Status</th><th>Actions</th></tr></thead>
+                      <tbody>
+                        {offersRecv.map(o => (
+                          <tr key={o.offer_id}>
+                            <td><Link href={`/exchange/${o.item_id}`} style={{ color: 'var(--primary)', fontWeight: 600 }}>{o.title}</Link></td>
+                            <td>
+                              <div>{o.buyer_name}</div>
+                              {o.message && <div style={{ fontSize: '12px', color: 'var(--ink-muted)', marginTop: 2 }}>"{o.message}"</div>}
+                            </td>
+                            <td style={{ fontWeight: 600 }}>{fmt(o.counter_price || o.offer_price)}</td>
+                            <td>{statusBadgeEl(o.status)}</td>
+                            <td>
+                              {o.status === 'pending' && (
+                                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                                  <button className="btn btn-success btn-sm" onClick={() => doAcceptOffer(o.offer_id)} disabled={isLoading(o.offer_id)}>Accept</button>
+                                  <button className="btn btn-outline btn-sm" onClick={() => { setCounterModal({ offerId: o.offer_id, title: o.title }); setCounterPrice(''); }} disabled={isLoading(o.offer_id)}>Counter</button>
+                                  <button className="btn btn-danger btn-sm" onClick={() => doRejectOffer(o.offer_id)} disabled={isLoading(o.offer_id)}>Reject</button>
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              <div className="card">
+                <h3 style={{ marginTop: 0, color: 'var(--navy)' }}>Offers Sent</h3>
+                {offersSent.length === 0 ? (
+                  <p style={{ color: 'var(--ink-muted)', textAlign: 'center', padding: '12px 0' }}>No outgoing offers.</p>
+                ) : (
+                  <div className="table-responsive">
+                    <table className="table">
+                      <thead><tr><th>Item</th><th>Seller</th><th>Your Bid</th><th>Status</th><th>Actions</th></tr></thead>
+                      <tbody>
+                        {offersSent.map(o => (
+                          <tr key={o.offer_id}>
+                            <td><Link href={`/exchange/${o.item_id}`} style={{ color: 'var(--primary)', fontWeight: 600 }}>{o.title}</Link></td>
+                            <td>{o.seller_name}</td>
+                            <td style={{ fontWeight: 600 }}>
+                              {fmt(o.offer_price)}
+                              {o.counter_price && <div style={{ fontSize: '12px', color: 'var(--gold)' }}>Counter: {fmt(o.counter_price)}</div>}
+                            </td>
+                            <td>{statusBadgeEl(o.status)}</td>
+                            <td>
+                              <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                                {o.status === 'countered' && (
+                                  <>
+                                    <button className="btn btn-success btn-sm" onClick={() => doAcceptCounter(o.offer_id)} disabled={isLoading(o.offer_id)}>Accept Counter</button>
+                                    <button className="btn btn-danger btn-sm" onClick={() => doRejectOffer(o.offer_id)} disabled={isLoading(o.offer_id)}>Decline</button>
+                                  </>
+                                )}
+                                {o.status === 'pending' && (
+                                  <button className="btn btn-outline btn-sm" onClick={() => doWithdrawOffer(o.offer_id)} disabled={isLoading(o.offer_id)}>Withdraw</button>
+                                )}
+                              </div>
                             </td>
                           </tr>
                         ))}
@@ -202,377 +525,137 @@ export default function DashboardContent({ data, user }: { data: DashboardData; 
             </div>
           )}
 
-      {activeTab === 'items' && (
-        <div id="tab-items">
-          <div className="card">
-            <h3 style={{ marginTop: 0, color: 'var(--navy)' }}>My Marketplace Items</h3>
-            {myItems.length === 0 ? (
-              <p style={{ color: 'var(--gray)', textAlign: 'center', padding: '24px 0' }}>
-                You haven't listed any items for sale. <Link href="/exchange">Sell an item now</Link>
-              </p>
-            ) : (
-              <div className="table-responsive">
-                <table className="table">
-                  <thead><tr><th>Title</th><th>Price</th><th>Condition</th><th>Status</th><th>Actions</th></tr></thead>
-                  <tbody>
-                    {myItems.map(it => (
-                      <tr key={it.item_id || (it as any).id}>
-                        <td><strong>{it.title}</strong></td>
-                        <td>{fmt(it.asking_price || (it as any).price || 0)}</td>
-                        <td><span className={`badge ${conditionColor(it.item_condition || (it as any).condition)}`}>{conditionLabel(it.item_condition || (it as any).condition)}</span></td>
-                        <td>
-                          <CustomSelect 
-                            name={`status_item_${it.item_id || (it as any).id}`} 
-                            value={it.status || 'available'} 
-                            onChange={() => {}} 
-                            options={[
-                              { value: 'available', label: 'Available' },
-                              { value: 'sold', label: 'Sold' },
-                              { value: 'withdrawn', label: 'Withdrawn' }
-                            ]} 
-                          />
-                        </td>
-                        <td>
-                          <button className="btn btn-outline btn-sm">Edit</button>
-                          <button className="btn btn-danger btn-sm" style={{ marginLeft: '4px' }}>Delete</button>
-                          <Link className="btn btn-primary btn-sm" style={{ marginLeft: '4px' }} href={`/exchange/${it.item_id || (it as any).id}`}>View</Link>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+          {/* APPLICATIONS TAB */}
+          {activeTab === 'applications' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div className="card">
+                <h3 style={{ marginTop: 0, color: 'var(--navy)' }}>Applications Received</h3>
+                {appsRecv.length === 0 ? (
+                  <p style={{ color: 'var(--ink-muted)', textAlign: 'center', padding: '12px 0' }}>No applications received.</p>
+                ) : (
+                  <div className="table-responsive">
+                    <table className="table">
+                      <thead><tr><th>Listing</th><th>Applicant</th><th>Message</th><th>Status</th><th>Actions</th></tr></thead>
+                      <tbody>
+                        {appsRecv.map(a => (
+                          <tr key={a.application_id}>
+                            <td><strong>{a.listing_title}</strong></td>
+                            <td>
+                              <div>{a.applicant_name}</div>
+                              <div style={{ fontSize: '12px', color: 'var(--ink-muted)' }}>{a.applicant_email}</div>
+                            </td>
+                            <td>
+                              <div style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={a.message}>
+                                {a.message || '—'}
+                              </div>
+                            </td>
+                            <td>{statusBadgeEl(a.status)}</td>
+                            <td>
+                              {a.status === 'pending' && (
+                                <div style={{ display: 'flex', gap: '4px' }}>
+                                  <button className="btn btn-success btn-sm" onClick={() => doAcceptApp(a.application_id)} disabled={isLoading(a.application_id)}>Accept</button>
+                                  <button className="btn btn-danger btn-sm" onClick={() => doRejectApp(a.application_id)} disabled={isLoading(a.application_id)}>Reject</button>
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+
+              <div className="card">
+                <h3 style={{ marginTop: 0, color: 'var(--navy)' }}>Applications Sent</h3>
+                {data.appsSent.length === 0 ? (
+                  <p style={{ color: 'var(--ink-muted)', textAlign: 'center', padding: '12px 0' }}>No applications sent.</p>
+                ) : (
+                  <div className="table-responsive">
+                    <table className="table">
+                      <thead><tr><th>Listing</th><th>Owner</th><th>Status</th><th>Date</th></tr></thead>
+                      <tbody>
+                        {data.appsSent.map(a => (
+                          <tr key={a.application_id}>
+                            <td><strong>{a.listing_title}</strong></td>
+                            <td>{a.owner_name || '—'}</td>
+                            <td>{statusBadgeEl(a.status)}</td>
+                            <td style={{ fontSize: '13px', color: 'var(--ink-muted)' }}>{a.created_at ? new Date(a.created_at).toLocaleDateString() : ''}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* NOTIFICATIONS TAB */}
+          {activeTab === 'notifications' && (
+            <div className="card">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                <h3 style={{ margin: 0, color: 'var(--navy)' }}>Notifications</h3>
+                {notifications.some(n => !n.is_read) && (
+                  <button className="btn btn-outline btn-sm" onClick={handleMarkAllRead} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <RefreshCw size={13} /> Mark all read
+                  </button>
+                )}
+              </div>
+              {notifications.length === 0 ? (
+                <p style={{ color: 'var(--ink-muted)', textAlign: 'center', padding: '24px 0' }}>No notifications yet.</p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {notifications.map(n => (
+                    <div
+                      key={n.notif_id}
+                      onClick={() => { if (!n.is_read) handleMarkRead(n.notif_id); if (n.link) router.push(n.link); }}
+                      style={{
+                        display: 'flex', alignItems: 'flex-start', gap: '12px', padding: '12px 16px', borderRadius: '8px',
+                        background: n.is_read ? 'transparent' : 'var(--primary-light, #EEF7F2)',
+                        border: `1px solid ${n.is_read ? 'var(--border)' : 'var(--primary)'}`,
+                        cursor: n.link ? 'pointer' : 'default',
+                        transition: 'background 0.2s',
+                      }}
+                    >
+                      <div style={{ width: 8, height: 8, borderRadius: '50%', background: n.is_read ? 'transparent' : 'var(--primary)', flexShrink: 0, marginTop: 6 }} />
+                      <div style={{ flex: 1 }}>
+                        <p style={{ margin: 0, fontSize: '14px', fontWeight: n.is_read ? 400 : 600 }}>{n.message}</p>
+                        <p style={{ margin: '2px 0 0', fontSize: '12px', color: 'var(--ink-muted)' }}>{n.created_at ? new Date(n.created_at).toLocaleString() : ''}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
         </div>
-      )}
+      </div>
 
-      {activeTab === 'seeking' && (
-        <div id="tab-seeking">
-          <div className="card">
-            <h3 style={{ marginTop: 0, color: 'var(--navy)' }}>My "Looking For" Requests</h3>
-            {(!mySeeking || mySeeking.length === 0) ? (
-              <p style={{ color: 'var(--gray)', textAlign: 'center', padding: '24px 0' }}>
-                You haven't posted any requests. <Link href="/seeking">Post a request</Link>
-              </p>
-            ) : (
-              <div className="table-responsive">
-                <table className="table">
-                  <thead><tr><th>Zone</th><th>Property Type</th><th>Budget</th><th>Move-in Date</th><th>Status</th><th>Actions</th></tr></thead>
-                  <tbody>
-                    {mySeeking.map(s => (
-                      <tr key={s.post_id || s.id}>
-                        <td><strong>{s.zone || s.zone_id}</strong></td>
-                        <td>{propertyTypeLabel(s.property_type)}</td>
-                        <td>{fmt(s.budget_min)} - {fmt(s.budget_max)}</td>
-                        <td>{s.move_in_date || 'N/A'}</td>
-                        <td>
-                          <CustomSelect 
-                            name={`status_seeking_${s.post_id || s.id}`} 
-                            value={s.status || 'active'} 
-                            onChange={() => {}} 
-                            options={[
-                              { value: 'active', label: 'Active' },
-                              { value: 'fulfilled', label: 'Fulfilled' }
-                            ]} 
-                          />
-                        </td>
-                        <td>
-                          <button className="btn btn-outline-danger btn-sm">Delete</button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-
-          <div className="card" style={{ marginTop: '24px' }}>
-            <h3 style={{ marginTop: 0, color: 'var(--navy)' }}>Responses Received (For your requests)</h3>
-            {(!seekRespRecv || seekRespRecv.length === 0) ? (
-              <p style={{ color: 'var(--gray)', textAlign: 'center', padding: '12px 0' }}>No responses yet.</p>
-            ) : (
-              <div className="table-responsive">
-                <table className="table">
-                  <thead><tr><th>From</th><th>Message</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead>
-                  <tbody>
-                    {seekRespRecv.map(r => (
-                      <tr key={r.response_id}>
-                        <td>
-                          <strong>{r.responder_name}</strong><br />
-                          <button className="btn btn-outline btn-sm" style={{ marginTop: '6px', padding: '4px 12px', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                            <UserCheck className="lucide-sm" /> Contact
-                          </button>
-                        </td>
-                        <td>{r.message}</td>
-                        <td><span dangerouslySetInnerHTML={{ __html: statusBadge(r.status) }} /></td>
-                        <td>{r.created_at ? new Date(r.created_at).toLocaleDateString() : ''}</td>
-                        <td>
-                          {r.status === 'pending' && (
-                            <>
-                              <button className="btn btn-success btn-sm">Accept</button>
-                              <button className="btn btn-danger btn-sm" style={{ marginLeft: '4px' }}>Reject</button>
-                            </>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-
-          <div className="card" style={{ marginTop: '24px' }}>
-            <h3 style={{ marginTop: 0, color: 'var(--navy)' }}>Responses Sent (To other requests)</h3>
-            {(!seekRespSent || seekRespSent.length === 0) ? (
-              <p style={{ color: 'var(--gray)', textAlign: 'center', padding: '12px 0' }}>You haven't responded to any requests.</p>
-            ) : (
-              <div className="table-responsive">
-                <table className="table">
-                  <thead><tr><th>Request</th><th>Landlord</th><th>Your Message</th><th>Status</th><th>Date</th></tr></thead>
-                  <tbody>
-                    {seekRespSent.map(r => (
-                      <tr key={r.response_id}>
-                        <td><strong>{r.requirements ? r.requirements.substring(0, 30) : ''}...</strong></td>
-                        <td>
-                          {r.owner_name || 'Landlord'}<br />
-                          <button className="btn btn-outline btn-sm" style={{ marginTop: '6px', padding: '4px 12px', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                            <UserCheck className="lucide-sm" /> Contact
-                          </button>
-                        </td>
-                        <td>{r.message}</td>
-                        <td><span dangerouslySetInnerHTML={{ __html: statusBadge(r.status) }} /></td>
-                        <td>{r.created_at ? new Date(r.created_at).toLocaleDateString() : ''}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {activeTab === 'preferences' && user.role === 'student' && (
-        <div id="tab-preferences">
-          <div className="card">
-            <h3 style={{ marginTop: 0, color: 'var(--navy)' }}>Compatibility Preferences</h3>
-            <div style={{ textAlign: 'center', padding: '40px 20px' }}>
-              <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '64px', height: '64px', borderRadius: '50%', backgroundColor: hasPreferences ? 'var(--success-light)' : 'var(--warning-light)', color: hasPreferences ? 'var(--success)' : 'var(--warning)', marginBottom: '16px' }}>
-                <Settings size={32} />
-              </div>
-              <h4 style={{ margin: '0 0 12px 0', fontSize: '18px' }}>
-                {hasPreferences ? 'Your Preferences are Set' : 'Setup Required'}
-              </h4>
-              <p style={{ color: 'var(--gray)', maxWidth: '400px', margin: '0 auto 24px auto', lineHeight: 1.5 }}>
-                {hasPreferences 
-                  ? 'Your roommate matching preferences are active. This helps us find the best roommates for you.' 
-                  : 'You haven\'t set up your roommate matching preferences yet. Set them up to see compatibility scores with other students.'}
-              </p>
-              <Link href="/profile" className="btn btn-primary">
-                Manage Preferences in Profile
-              </Link>
+      {/* ── Counter-offer modal ── */}
+      {counterModal && (
+        <div className="modal-overlay" onClick={() => setCounterModal(null)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 380 }}>
+            <h2 style={{ marginTop: 0 }}>Counter Offer</h2>
+            <p style={{ color: 'var(--ink-muted)', fontSize: 14 }}>Item: <strong>{counterModal.title}</strong></p>
+            <div className="form-group">
+              <label>Your Counter Price (৳)</label>
+              <input type="number" min="1" value={counterPrice} onChange={e => setCounterPrice(e.target.value)} placeholder="e.g. 1800" />
+            </div>
+            <div style={{ display: 'flex', gap: '12px', marginTop: '20px' }}>
+              <button className="btn btn-outline btn-block" onClick={() => setCounterModal(null)}>Cancel</button>
+              <button className="btn btn-primary btn-block" onClick={doCounterOffer} disabled={isLoading(counterModal.offerId)}>Send Counter</button>
             </div>
           </div>
         </div>
       )}
 
-      {activeTab === 'watch' && user.role !== 'landlord' && (
-        <div id="tab-watch">
-          <div className="card">
-            <h3 style={{ marginTop: 0, color: 'var(--navy)', marginBottom: '14px' }}>Saved Properties</h3>
-            {watched.length === 0 ? (
-              <p style={{ color: 'var(--gray)', textAlign: 'center', padding: '24px 0' }}>
-                Your watchlist is empty. <Link href="/listings">Browse properties</Link>
-              </p>
-            ) : (
-              <div className="grid-3">
-                {watched.map(l => (
-                  <ListingCard key={l.listing_id || l.id} listing={l} />
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {activeTab === 'offers' && user.role !== 'landlord' && (
-        <div id="tab-offers">
-          <div className="card" style={{ marginBottom: '20px' }}>
-            <h3 style={{ marginTop: 0, color: 'var(--navy)' }}>Offers Received</h3>
-            {offersRecv.length === 0 ? (
-              <p style={{ color: 'var(--gray)', textAlign: 'center', padding: '12px 0' }}>No offers received yet.</p>
-            ) : (
-              <div className="table-responsive">
-                <table className="table">
-                  <thead><tr><th>Item</th><th>Buyer</th><th>Price</th><th>Status</th><th>Action</th></tr></thead>
-                  <tbody>
-                    {offersRecv.map(o => (
-                      <tr key={o.offer_id}>
-                        <td><strong>{o.title}</strong></td>
-                        <td>
-                          {o.buyer_name}<br />
-                          <button className="btn btn-outline btn-sm" style={{ marginTop: '6px', padding: '4px 12px', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                            <UserCheck className="lucide-sm" /> Contact
-                          </button>
-                        </td>
-                        <td>{fmt(o.counter_price || o.offer_price)}</td>
-                        <td><span dangerouslySetInnerHTML={{ __html: statusBadge(o.status) }} /></td>
-                        <td>
-                          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                            <Link className="btn btn-outline btn-sm" href={`/exchange/${o.item_id}`}>Open</Link>
-                            {o.status === 'pending' && (
-                              <>
-                                <button className="btn btn-success btn-sm">Accept</button>
-                                <button className="btn btn-outline btn-sm">Counter</button>
-                                <button className="btn btn-danger btn-sm">Reject</button>
-                              </>
-                            )}
-                            <button className="btn btn-danger btn-sm">
-                              <Trash2 className="lucide-sm" style={{ width: '14px', height: '14px' }} /> Delete Item
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-
-          <div className="card">
-            <h3 style={{ marginTop: 0, color: 'var(--navy)' }}>Offers Sent (Outgoing)</h3>
-            {offersSent.length === 0 ? (
-              <p style={{ color: 'var(--gray)', textAlign: 'center', padding: '12px 0' }}>No outgoing offers.</p>
-            ) : (
-              <div className="table-responsive">
-                <table className="table">
-                  <thead><tr><th>Item</th><th>Seller</th><th>Your Bid</th><th>Status</th><th>Action</th></tr></thead>
-                  <tbody>
-                    {offersSent.map(o => (
-                      <tr key={o.offer_id}>
-                        <td><strong>{o.title}</strong></td>
-                        <td>
-                          {o.seller_name}<br />
-                          <button className="btn btn-outline btn-sm" style={{ marginTop: '6px', padding: '4px 12px', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                            <UserCheck className="lucide-sm" /> Contact
-                          </button>
-                        </td>
-                        <td>{fmt(o.counter_price || o.offer_price)}</td>
-                        <td><span dangerouslySetInnerHTML={{ __html: statusBadge(o.status) }} /></td>
-                        <td>
-                          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                            <Link className="btn btn-outline btn-sm" href={`/exchange/${o.item_id}`}>Open</Link>
-                            {o.status === 'countered' && (
-                              <>
-                                <button className="btn btn-success btn-sm">Accept Counter</button>
-                                <button className="btn btn-danger btn-sm">Reject</button>
-                                <button className="btn btn-outline btn-sm">Withdraw</button>
-                              </>
-                            )}
-                            {o.status === 'pending' && (
-                              <button className="btn btn-outline btn-sm">Withdraw Offer</button>
-                            )}
-                            <button className="btn btn-danger btn-sm">
-                              <Trash2 className="lucide-sm" style={{ width: '14px', height: '14px' }} /> Delete
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {activeTab === 'applications' && (
-        <div id="tab-applications">
-          <div className="card" style={{ marginBottom: '20px' }}>
-            <h3 style={{ marginTop: 0, color: 'var(--navy)' }}>Applications Received</h3>
-            {appsRecv.length === 0 ? (
-              <p style={{ color: 'var(--gray)', textAlign: 'center', padding: '12px 0' }}>No applications received yet.</p>
-            ) : (
-              <div className="table-responsive">
-                <table className="table">
-                  <thead><tr><th>Property</th><th>Applicant</th><th>Message</th><th>Status</th><th>Action</th></tr></thead>
-                  <tbody>
-                    {appsRecv.map(a => (
-                      <tr key={a.application_id}>
-                        <td><strong>{a.listing_title}</strong></td>
-                        <td>
-                          {a.applicant_name}<br />
-                          <button className="btn btn-outline btn-sm" style={{ marginTop: '6px', padding: '4px 12px', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                            <UserCheck className="lucide-sm" /> Contact
-                          </button>
-                        </td>
-                        <td>
-                          <div style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={a.message}>
-                            {a.message}
-                          </div>
-                        </td>
-                        <td><span dangerouslySetInnerHTML={{ __html: statusBadge(a.status) }} /></td>
-                        <td>
-                          {a.status === 'pending' && (
-                            <>
-                              <button className="btn btn-success btn-sm">Accept</button>
-                              <button className="btn btn-danger btn-sm" style={{ marginLeft: '4px' }}>Reject</button>
-                            </>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-
-          <div className="card">
-            <h3 style={{ marginTop: 0, color: 'var(--navy)' }}>Applications Sent</h3>
-            {appsSent.length === 0 ? (
-              <p style={{ color: 'var(--gray)', textAlign: 'center', padding: '12px 0' }}>You haven't applied to any properties.</p>
-            ) : (
-              <div className="table-responsive">
-                <table className="table">
-                  <thead><tr><th>Property</th><th>Landlord</th><th>Status</th><th>Date</th></tr></thead>
-                  <tbody>
-                    {appsSent.map(a => (
-                      <tr key={a.application_id}>
-                        <td><strong>{a.listing_title}</strong></td>
-                        <td>
-                          {a.owner_name || 'Landlord'}<br />
-                          <button className="btn btn-outline btn-sm" style={{ marginTop: '6px', padding: '4px 12px', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                            <UserCheck className="lucide-sm" /> Contact
-                          </button>
-                        </td>
-                        <td><span dangerouslySetInnerHTML={{ __html: statusBadge(a.status) }} /></td>
-                        <td>{a.created_at ? new Date(a.created_at).toLocaleDateString() : ''}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-        </div>
-      </div>
-      <VerificationModal 
-        isOpen={isVerifModalOpen} 
-        onClose={() => setIsVerifModalOpen(false)} 
-        userId={user.id} 
-        onSuccess={() => {
-          setIsVerifModalOpen(false);
-          router.refresh();
-        }} 
+      <VerificationModal
+        isOpen={isVerifModalOpen}
+        onClose={() => setIsVerifModalOpen(false)}
+        userId={user.id}
+        onSuccess={() => { setIsVerifModalOpen(false); router.refresh(); }}
       />
     </div>
   );

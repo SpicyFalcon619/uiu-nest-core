@@ -1738,3 +1738,8 @@ html.is-landlord .seeking-nav-link {
   display: none !important;
 }
 
+
+/* Hide scrollbar for right sticky column while keeping scroll functional */
+.right-sticky-col::-webkit-scrollbar { display: none; }
+
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }

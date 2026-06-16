@@ -6,6 +6,8 @@ import Link from 'next/link';
 import ExchangeItemDetailClient from './ExchangeItemDetailClient';
 import CommentSection from '@/components/comments/CommentSection';
 import UserRating from '@/components/ratings/UserRating';
+import OffersSection from '@/components/OffersSection';
+import StatusChanger from '@/components/StatusChanger';
 
 export default async function ExchangeItemDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -36,6 +38,14 @@ export default async function ExchangeItemDetail({ params }: { params: Promise<{
     `)
     .eq('item_id', parseInt(id))
     .order('created_at', { ascending: true });
+
+  // Fetch offers — owner sees all, buyer sees their own, others see accepted + pending counts only
+  const { data: offersData } = await supabase
+    .from('offers')
+    .select('*, buyer:profiles!offers_buyer_id_fkey(name, profile_pic)')
+    .eq('item_id', parseInt(id))
+    .order('created_at', { ascending: false });
+  const allOffers = offersData || [];
 
   const comments = commentsData || [];
 
@@ -195,10 +205,17 @@ export default async function ExchangeItemDetail({ params }: { params: Promise<{
             <p style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6, color: '#334155' }}>{item.description}</p>
           </div>
 
-          <div style={{ marginTop: '32px' }}>
+          {isOwner && (
+            <div className="card" style={{ padding: '16px 20px', marginTop: '20px' }}>
+              <StatusChanger type="item" entityId={item.item_id} currentStatus={item.status} />
+            </div>
+          )}
+
+          <div style={{ marginTop: '24px' }}>
             <ExchangeItemDetailClient
               itemId={item.item_id}
               itemTitle={item.title}
+              sellerId={item.seller_id}
               isLoggedIn={isLoggedIn}
               isOwner={isOwner}
               isAdmin={isAdmin}
@@ -207,8 +224,17 @@ export default async function ExchangeItemDetail({ params }: { params: Promise<{
             />
           </div>
 
+          {/* Offers / bidding panel — visible to owner (all) or logged-in users (accepted only) */}
+          {(isOwner || isLoggedIn) && (
+            <OffersSection
+              offers={isOwner ? allOffers as any : allOffers.filter((o: any) => o.buyer_id === user?.id) as any}
+              isOwner={isOwner}
+              itemId={item.item_id}
+            />
+          )}
+
           <div style={{ marginTop: '32px' }}>
-            <CommentSection 
+            <CommentSection
               itemId={item.item_id}
               initialComments={finalComments as any}
               isLoggedIn={isLoggedIn}

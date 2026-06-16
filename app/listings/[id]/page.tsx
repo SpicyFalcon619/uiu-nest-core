@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
-import { MapPin, ShieldCheck, Bed, Activity } from 'lucide-react';
+import { MapPin, ShieldCheck, Bath, UtensilsCrossed, Sofa, Sunset, Car, Zap, ArrowUpDown, CheckCircle2, XCircle } from 'lucide-react';
 import { fmt, propertyTypeLabel, statusLabel, placeholderPhoto, avatarInitials } from '@/lib/utils';
 import ApplicationForm from './ApplicationForm';
 import WatchlistButton from '@/components/WatchlistButton';
@@ -9,6 +9,7 @@ import ListingMap from '@/components/ListingMap';
 import CommentSection from '@/components/comments/CommentSection';
 import UserRating from '@/components/ratings/UserRating';
 import Link from 'next/link';
+import StatusChanger from '@/components/StatusChanger';
 
 export const metadata = {
   title: 'Listing Details - UIUNest',
@@ -138,19 +139,47 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
 
           <div className="card" style={{ padding: '32px', marginBottom: '24px' }}>
             <h3>Amenities</h3>
-            {listing.amenities ? (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginTop: '16px' }}>
-                <div style={{ display: 'flex', gap: '8px', color: listing.amenities.attached_bathroom ? 'var(--emerald)' : 'var(--ink-muted)' }}>
-                  <ShieldCheck size={18}/> Attached Bathroom
+            {listing.amenities ? (() => {
+              const amenityList = [
+                { key: 'attached_bathroom', label: 'Attached Bathroom', icon: <Bath size={16} /> },
+                { key: 'attached_kitchen',  label: 'Kitchen',           icon: <UtensilsCrossed size={16} /> },
+                { key: 'is_furnished',      label: 'Furnished',         icon: <Sofa size={16} /> },
+                { key: 'rooftop_access',    label: 'Rooftop Access',    icon: <Sunset size={16} /> },
+                { key: 'parking',           label: 'Parking',           icon: <Car size={16} /> },
+                { key: 'power_backup',      label: 'Power Backup',      icon: <Zap size={16} /> },
+                { key: 'lift_access',       label: 'Lift / Elevator',   icon: <ArrowUpDown size={16} /> },
+              ];
+              return (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '16px' }}>
+                  {amenityList.map(({ key, label, icon }) => {
+                    const has = !!(listing.amenities as any)[key];
+                    return (
+                      <div
+                        key={key}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          padding: '10px 14px',
+                          borderRadius: '8px',
+                          background: has ? 'var(--primary-light, #EEF7F2)' : 'var(--surface-1)',
+                          color: has ? 'var(--primary)' : 'var(--ink-muted)',
+                          fontSize: '14px',
+                          fontWeight: has ? 500 : 400,
+                        }}
+                      >
+                        <span style={{ opacity: has ? 1 : 0.45 }}>{icon}</span>
+                        <span style={{ flex: 1 }}>{label}</span>
+                        {has
+                          ? <CheckCircle2 size={14} style={{ flexShrink: 0, color: 'var(--primary)' }} />
+                          : <XCircle     size={14} style={{ flexShrink: 0, opacity: 0.3 }} />
+                        }
+                      </div>
+                    );
+                  })}
                 </div>
-                <div style={{ display: 'flex', gap: '8px', color: listing.amenities.is_furnished ? 'var(--emerald)' : 'var(--ink-muted)' }}>
-                  <Bed size={18}/> Furnished
-                </div>
-                <div style={{ display: 'flex', gap: '8px', color: listing.amenities.power_backup ? 'var(--emerald)' : 'var(--ink-muted)' }}>
-                  <Activity size={18}/> Power Backup
-                </div>
-              </div>
-            ) : (
+              );
+            })() : (
               <p style={{ color: 'var(--ink-muted)' }}>Not specified.</p>
             )}
           </div>
@@ -182,9 +211,26 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
           </div>
         </div>
 
-        {/* Right Column: Cost Breakdown & Owner info */}
-        <div>
-          <div style={{ position: 'sticky', top: '100px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        {/* Right Column: sticky, independently scrollable, no visible scrollbar */}
+        <div className="right-sticky-col" style={{
+          position: 'sticky',
+          top: '80px',
+          maxHeight: 'calc(100vh - 100px)',
+          overflowY: 'auto',
+          overflowX: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '24px',
+          paddingBottom: '32px',
+          scrollbarWidth: 'none',
+        }}>
+
+            {/* Owner-only status changer */}
+            {isLoggedIn && user?.id === listing.user_id && (
+              <div className="card" style={{ padding: '16px 20px' }}>
+                <StatusChanger type="listing" entityId={parseInt(id)} currentStatus={listing.status} />
+              </div>
+            )}
 
             {/* Green card — cost breakdown only */}
             <div className="card bento-emerald" style={{ padding: '32px' }}>
@@ -283,7 +329,6 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
               )}
             </div>
 
-          </div>
         </div>
 
       </div>

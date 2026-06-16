@@ -1,15 +1,16 @@
 'use client';
 
-import { useState } from 'react';
-import { ThumbsUp, ThumbsDown, MessageSquare } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { ThumbsUp, ThumbsDown, MessageSquare, Send } from 'lucide-react';
 import { addComment, voteComment } from '@/app/actions/comments';
 import { toast } from 'sonner';
-import { fmtDate } from '@/lib/utils';
+import { fmtDate, avatarInitials } from '@/lib/utils';
 import Link from 'next/link';
 
 interface Comment {
   comment_id: number;
-  item_id: number;
+  item_id?: number;
+  listing_id?: number;
   user_id: string;
   content: string;
   upvotes: number;
@@ -31,116 +32,136 @@ export default function CommentSection({ itemId, initialComments, isLoggedIn, cu
   const [comments, setComments] = useState<Comment[]>(initialComments);
   const [newComment, setNewComment] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!newComment.trim() || !isLoggedIn) return;
+    const text = newComment.trim();
+    if (!text || !isLoggedIn) return;
 
     setIsSubmitting(true);
-    const res = await addComment(itemId, newComment, type);
+    setNewComment('');
+
+    // Optimistic insert
+    const optimistic: Comment = {
+      comment_id: Date.now(),
+      user_id: currentUserId || '',
+      content: text,
+      upvotes: 0,
+      downvotes: 0,
+      created_at: new Date().toISOString(),
+      user: { name: 'You' },
+      user_vote: null,
+    };
+    setComments(prev => [...prev, optimistic]);
+
+    const res = await addComment(itemId, text, type);
     if (res.error) {
       toast.error(res.error);
+      setComments(prev => prev.filter(c => c.comment_id !== optimistic.comment_id));
+      setNewComment(text);
     } else {
-      toast.success('Comment posted!');
-      setNewComment('');
-      // Optimistic update would be ideal here, but server revalidation handles it on page refresh.
-      // We will reload to get the new comment from the server for simplicity
-      window.location.reload();
+      // Replace optimistic with real data
+      if (res.comment) {
+        setComments(prev => prev.map(c =>
+          c.comment_id === optimistic.comment_id ? { ...res.comment as Comment, user_vote: null } : c
+        ));
+      }
     }
     setIsSubmitting(false);
   };
 
   const handleVote = async (commentId: number, voteType: 1 | -1) => {
-    if (!isLoggedIn) {
-      toast.error('You must be logged in to vote.');
-      return;
-    }
+    if (!isLoggedIn) { toast.error('You must be logged in to vote.'); return; }
 
-    // Optimistic UI update
+    // Optimistic
     setComments(prev => prev.map(c => {
-      if (c.comment_id === commentId) {
-        let newUp = c.upvotes;
-        let newDown = c.downvotes;
-        let newVote = voteType;
-
-        if (c.user_vote === voteType) {
-          // Toggle off
-          newVote = null as any;
-          if (voteType === 1) newUp--; else newDown--;
-        } else {
-          if (c.user_vote === 1) newUp--;
-          if (c.user_vote === -1) newDown--;
-          if (voteType === 1) newUp++; else newDown++;
-        }
-
-        return { ...c, upvotes: Math.max(0, newUp), downvotes: Math.max(0, newDown), user_vote: newVote };
+      if (c.comment_id !== commentId) return c;
+      let up = c.upvotes, dn = c.downvotes;
+      let newVote: 1 | -1 | null = voteType;
+      if (c.user_vote === voteType) {
+        newVote = null;
+        if (voteType === 1) up--; else dn--;
+      } else {
+        if (c.user_vote === 1) up--;
+        if (c.user_vote === -1) dn--;
+        if (voteType === 1) up++; else dn++;
       }
-      return c;
+      return { ...c, upvotes: Math.max(0, up), downvotes: Math.max(0, dn), user_vote: newVote };
     }));
 
     const res = await voteComment(commentId, voteType, itemId, type);
     if (res.error) {
       toast.error(res.error);
-      // Fallback: reload page
-      window.location.reload();
+      setComments(initialComments); // revert
     }
   };
 
   return (
     <div className="card" style={{ padding: '32px', marginBottom: '24px' }}>
-      <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '24px' }}>
+      <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: 0, marginBottom: '24px' }}>
         <MessageSquare size={20} /> Comments ({comments.length})
       </h3>
 
       {isLoggedIn ? (
-        <form onSubmit={handleSubmit} style={{ marginBottom: '32px' }}>
-          <textarea
-            value={newComment}
-            onChange={(e) => setNewComment(e.target.value)}
-            placeholder="Ask a question or leave a comment..."
-            style={{ width: '100%', minHeight: '80px', padding: '12px', borderRadius: '8px', border: '1px solid var(--border)', marginBottom: '12px', fontFamily: 'inherit' }}
-            disabled={isSubmitting}
-          />
-          <button type="submit" className="btn btn-primary" disabled={isSubmitting || !newComment.trim()}>
-            {isSubmitting ? 'Posting...' : 'Post Comment'}
-          </button>
+        <form onSubmit={handleSubmit} style={{ marginBottom: '28px', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+          <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--primary)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 14, flexShrink: 0, marginTop: 2 }}>
+            You
+          </div>
+          <div style={{ flex: 1 }}>
+            <textarea
+              ref={textareaRef}
+              value={newComment}
+              onChange={e => setNewComment(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); handleSubmit(e as any); } }}
+              placeholder="Ask a question or leave a comment… (Ctrl+Enter to send)"
+              style={{ width: '100%', minHeight: '72px', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border)', fontFamily: 'inherit', fontSize: '14px', resize: 'vertical', boxSizing: 'border-box' }}
+              disabled={isSubmitting}
+            />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
+              <button type="submit" className="btn btn-primary btn-sm" disabled={isSubmitting || !newComment.trim()} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Send size={14} /> {isSubmitting ? 'Posting…' : 'Post'}
+              </button>
+            </div>
+          </div>
         </form>
       ) : (
-        <div style={{ padding: '16px', backgroundColor: 'var(--bg-color)', borderRadius: '8px', textAlign: 'center', marginBottom: '32px' }}>
+        <div style={{ padding: '14px', backgroundColor: 'var(--surface-1)', borderRadius: '8px', textAlign: 'center', marginBottom: '28px', fontSize: '14px' }}>
           <Link href="/login" style={{ color: 'var(--primary)', fontWeight: 500 }}>Log in to leave a comment</Link>
         </div>
       )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
         {comments.length === 0 ? (
-          <p style={{ color: 'var(--gray)' }}>No comments yet. Be the first to ask something!</p>
+          <p style={{ color: 'var(--ink-muted)', textAlign: 'center', padding: '16px 0' }}>No comments yet. Be the first!</p>
         ) : (
           comments.map(comment => (
-            <div key={comment.comment_id} style={{ display: 'flex', gap: '16px', paddingBottom: '20px', borderBottom: '1px solid var(--border)' }}>
-              <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', flexShrink: 0 }}>
-                {comment.user?.name ? comment.user.name.substring(0, 2).toUpperCase() : 'US'}
+            <div key={comment.comment_id} style={{ display: 'flex', gap: '12px', paddingBottom: '20px', borderBottom: '1px solid var(--border)' }}>
+              <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 12, flexShrink: 0, overflow: 'hidden' }}>
+                {comment.user?.profile_pic
+                  ? <img src={comment.user.profile_pic} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  : avatarInitials(comment.user?.name || 'U')}
               </div>
               <div style={{ flex: 1 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                  <span style={{ fontWeight: 600 }}>{comment.user?.name || 'Anonymous User'}</span>
-                  <span style={{ fontSize: '12px', color: 'var(--gray)' }}>{fmtDate(comment.created_at)}</span>
+                  <span style={{ fontWeight: 600, fontSize: '14px' }}>{comment.user?.name || 'Anonymous'}</span>
+                  <span style={{ fontSize: '12px', color: 'var(--ink-muted)' }}>{fmtDate(comment.created_at)}</span>
                 </div>
-                <p style={{ margin: '0 0 12px 0', lineHeight: 1.5 }}>{comment.content}</p>
-                
+                <p style={{ margin: '0 0 10px 0', lineHeight: 1.6, fontSize: '14px' }}>{comment.content}</p>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                  <button 
+                  <button
                     onClick={() => handleVote(comment.comment_id, 1)}
-                    style={{ background: 'none', border: 'none', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', color: comment.user_vote === 1 ? 'var(--primary)' : 'var(--gray)', padding: 0 }}
+                    style={{ background: 'none', border: 'none', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', color: comment.user_vote === 1 ? 'var(--primary)' : 'var(--ink-muted)', padding: 0, fontSize: '13px' }}
                   >
-                    <ThumbsUp size={16} fill={comment.user_vote === 1 ? 'var(--primary)' : 'none'} />
-                    <span style={{ fontSize: '14px', fontWeight: comment.user_vote === 1 ? 600 : 400 }}>{comment.upvotes}</span>
+                    <ThumbsUp size={14} fill={comment.user_vote === 1 ? 'currentColor' : 'none'} />
+                    {comment.upvotes}
                   </button>
-                  <button 
+                  <button
                     onClick={() => handleVote(comment.comment_id, -1)}
-                    style={{ background: 'none', border: 'none', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', color: comment.user_vote === -1 ? 'var(--danger)' : 'var(--gray)', padding: 0 }}
+                    style={{ background: 'none', border: 'none', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', color: comment.user_vote === -1 ? 'var(--danger)' : 'var(--ink-muted)', padding: 0, fontSize: '13px' }}
                   >
-                    <ThumbsDown size={16} fill={comment.user_vote === -1 ? 'var(--danger)' : 'none'} />
-                    <span style={{ fontSize: '14px', fontWeight: comment.user_vote === -1 ? 600 : 400 }}>{comment.downvotes}</span>
+                    <ThumbsDown size={14} fill={comment.user_vote === -1 ? 'currentColor' : 'none'} />
+                    {comment.downvotes}
                   </button>
                 </div>
               </div>
