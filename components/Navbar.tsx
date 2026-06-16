@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import type { Profile } from '@/types';
-import { Home, Building2, ShoppingBag, Search, UserCircle, LayoutDashboard, User, Heart, Receipt, LogOut, Menu, MessageCircle } from 'lucide-react';
+import { Home, Building2, ShoppingBag, Search, UserCircle, LayoutDashboard, User, Heart, Receipt, LogOut, Menu, MessageCircle, ArrowLeft } from 'lucide-react';
 import NotificationBell from './NotificationBell';
 import MessageIcon from './MessageIcon';
 
@@ -121,6 +121,44 @@ export default function Navbar() {
     { href: '/exchange', label: 'Market', icon: <ShoppingBag size={18} className="nav-icon" /> },
     ...(currentRole !== 'landlord' ? [{ href: '/seeking', label: 'Seeking', icon: <Search size={18} className="nav-icon" /> }] : []),
   ];
+
+  const isMessagesPage = pathname.startsWith('/messages');
+
+  // ── Slim messages bar ──────────────────────────────────────────
+  if (isMessagesPage) {
+    return (
+      <nav style={{
+        height: 64, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '0 20px', borderBottom: '1px solid var(--border)',
+        background: '#fff', flexShrink: 0,
+      }}>
+        <Link href="/dashboard" style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--ink-muted)', textDecoration: 'none', fontWeight: 500, fontSize: 14 }}>
+          <ArrowLeft size={18} />
+          Back
+        </Link>
+
+        <span style={{ fontWeight: 700, fontSize: 16, color: 'var(--ink)', position: 'absolute', left: '50%', transform: 'translateX(-50%)' }}>
+          Messages
+        </span>
+
+        {!loading && user && (
+          <div className="avatar" onClick={() => setAvatarOpen(!avatarOpen)} style={{ cursor: 'pointer', position: 'relative' }} ref={avatarMenuRef}>
+            {user.profile_pic
+              ? <img src={user.profile_pic} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} alt="Avatar" />
+              : initials}
+            {avatarOpen && (
+              <div className="avatar-menu open" style={{ top: '100%', right: 0, position: 'absolute' }}>
+                {user.role !== 'admin' && <Link href="/dashboard">Dashboard</Link>}
+                <Link href="/profile">Profile</Link>
+                {user.role !== 'admin' && <Link href="/bills">Bills</Link>}
+                <button onClick={handleLogout}>Logout</button>
+              </div>
+            )}
+          </div>
+        )}
+      </nav>
+    );
+  }
 
   return (
     <div id="nav-mount" className={navHidden ? 'nav-hidden' : ''}>
