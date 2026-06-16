@@ -196,11 +196,12 @@ export default async function ExchangeItemDetail({ params }: { params: Promise<{
           </div>
 
           <div style={{ marginTop: '32px' }}>
-            <ExchangeItemDetailClient 
-              itemId={item.item_id} 
+            <ExchangeItemDetailClient
+              itemId={item.item_id}
               itemTitle={item.title}
-              isLoggedIn={isLoggedIn && !isAdmin}
-              isOwner={isOwner || isAdmin}
+              isLoggedIn={isLoggedIn}
+              isOwner={isOwner}
+              isAdmin={isAdmin}
               status={item.status}
               askingPrice={item.asking_price}
             />
