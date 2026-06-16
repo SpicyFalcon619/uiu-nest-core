@@ -7,7 +7,6 @@ import ExchangeItemDetailClient from './ExchangeItemDetailClient';
 import CommentSection from '@/components/comments/CommentSection';
 import UserRating from '@/components/ratings/UserRating';
 import OffersSection from '@/components/OffersSection';
-import StatusChanger from '@/components/StatusChanger';
 import MessageButton from '@/components/MessageButton';
 
 export default async function ExchangeItemDetail({ params }: { params: Promise<{ id: string }> }) {
@@ -205,12 +204,6 @@ export default async function ExchangeItemDetail({ params }: { params: Promise<{
             <h3 style={{ marginTop: 0, marginBottom: '16px' }}>Description</h3>
             <p style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6, color: '#334155' }}>{item.description}</p>
           </div>
-
-          {isOwner && (
-            <div className="card" style={{ padding: '16px 20px', marginTop: '20px' }}>
-              <StatusChanger type="item" entityId={item.item_id} currentStatus={item.status} />
-            </div>
-          )}
 
           {/* Message seller button — shown to logged-in non-owners */}
           {isLoggedIn && !isOwner && !isAdmin && (

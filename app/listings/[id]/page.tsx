@@ -9,7 +9,6 @@ import ListingMap from '@/components/ListingMap';
 import CommentSection from '@/components/comments/CommentSection';
 import UserRating from '@/components/ratings/UserRating';
 import Link from 'next/link';
-import StatusChanger from '@/components/StatusChanger';
 import MessageButton from '@/components/MessageButton';
 
 export const metadata = {
@@ -61,6 +60,20 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
       .eq('user_id', user.id)
       .eq('listing_id', parseInt(id));
     isWatched = (count || 0) > 0;
+  }
+
+  // Check existing application
+  let existingApplication: { status: string } | null = null;
+  if (isLoggedIn && user?.id !== listing.user_id && !isAdmin) {
+    const { data: appData } = await supabase
+      .from('applications')
+      .select('status')
+      .eq('listing_id', parseInt(id))
+      .eq('applicant_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    existingApplication = appData;
   }
 
   // Fetch comments
@@ -226,13 +239,6 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
           scrollbarWidth: 'none',
         }}>
 
-            {/* Owner-only status changer */}
-            {isLoggedIn && user?.id === listing.user_id && (
-              <div className="card" style={{ padding: '16px 20px' }}>
-                <StatusChanger type="listing" entityId={parseInt(id)} currentStatus={listing.status} />
-              </div>
-            )}
-
             {/* Green card — cost breakdown only */}
             <div className="card bento-emerald" style={{ padding: '32px' }}>
               <h3 style={{ marginBottom: '24px' }}>Cost Breakdown</h3>
@@ -322,6 +328,7 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
                       listingId={parseInt(id)}
                       ownerId={listing.user_id}
                       listingTitle={listing.title}
+                      existingStatus={existingApplication?.status || null}
                     />
                     <div style={{ marginTop: '10px' }}>
                       <MessageButton

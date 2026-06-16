@@ -17,10 +17,17 @@ export async function addComment(itemId: number, content: string, type: 'item' |
   const { data: inserted, error } = await supabase
     .from(table)
     .insert({ [idCol]: itemId, user_id: user.id, content: content.trim() })
-    .select(`*, user:profiles!${table}_user_id_fkey(name, profile_pic)`)
+    .select('*')
     .single();
 
   if (error) return { error: error.message };
+
+  // Attach profile separately (avoids FK name guessing across different comment tables)
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('name, profile_pic')
+    .eq('id', user.id)
+    .single();
 
   // Notify the owner/seller
   const { data: commenter } = await supabase.from('profiles').select('name').eq('id', user.id).single();
@@ -49,7 +56,7 @@ export async function addComment(itemId: number, content: string, type: 'item' |
   }
 
   revalidatePath(type === 'item' ? `/exchange/${itemId}` : `/listings/${itemId}`);
-  return { success: true, comment: inserted };
+  return { success: true, comment: { ...inserted, user: profile || { name: 'You', profile_pic: null } } };
 }
 
 export async function voteComment(commentId: number, voteType: 1 | -1, itemId: number, type: 'item' | 'listing' = 'item') {

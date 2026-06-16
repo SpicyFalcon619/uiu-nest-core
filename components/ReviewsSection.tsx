@@ -34,8 +34,7 @@ export default function ReviewsSection({
 
   const hasReviewed = reviews.some(r => r.reviewer_id === currentUserId);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const doSubmit = async () => {
     setLoading(true);
 
     const validation = createReviewSchema.safeParse({
@@ -62,14 +61,16 @@ export default function ReviewsSection({
         composite_score: composite,
         reviewer_id: currentUserId
       })
-      .select('*, reviewer:profiles!reviews_reviewer_id_fkey(name)')
+      .select('*')
       .single();
 
     if (error) {
       toast.error(error.message);
     } else {
-      toast.success('Review posted successfully!');
-      setReviews([{ ...data, reviewer_name: data.reviewer?.name }, ...reviews]);
+      toast.success('Review posted!');
+      const { data: profile } = await supabase
+        .from('profiles').select('name').eq('id', currentUserId!).single();
+      setReviews([{ ...data, reviewer_name: profile?.name || 'You' }, ...reviews]);
       setShowForm(false);
     }
     
@@ -130,7 +131,7 @@ export default function ReviewsSection({
       </div>
 
       {showForm && (
-        <form onSubmit={handleSubmit} style={{ background: '#f8fafc', padding: '20px', borderRadius: '8px', marginBottom: '32px', border: '1px solid var(--border)' }}>
+        <form onSubmit={e => { e.preventDefault(); doSubmit(); }} style={{ background: '#f8fafc', padding: '20px', borderRadius: '8px', marginBottom: '32px', border: '1px solid var(--border)' }}>
           <h4 style={{ marginTop: 0 }}>Rate your experience</h4>
           <div className="grid-2" style={{ gap: '16px 32px', marginBottom: '16px' }}>
             <div>
@@ -146,11 +147,12 @@ export default function ReviewsSection({
           
           <div className="form-group">
             <label>Review Comment (Optional)</label>
-            <textarea 
-              rows={3} 
-              value={comment} 
+            <textarea
+              rows={3}
+              value={comment}
               onChange={e => setComment(e.target.value)}
-              placeholder="Share details of your experience at this property..."
+              onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); doSubmit(); } }}
+              placeholder="Share details of your experience… (Ctrl+Enter to submit)"
             />
           </div>
 

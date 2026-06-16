@@ -24,8 +24,7 @@ export default function UserRating({ targetUserId, initialRating, totalRatings, 
 
   const canRate = isLoggedIn && currentUserId !== targetUserId;
 
-  const handleSubmit = async (e: React.SyntheticEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const doSubmit = async () => {
     if (selected === 0) { toast.error('Please select a star rating.'); return; }
     setIsSubmitting(true);
     const res = await submitRating(targetUserId, selected, review);
@@ -64,7 +63,7 @@ export default function UserRating({ targetUserId, initialRating, totalRatings, 
         <div className="modal-overlay" onClick={() => setShowModal(false)}>
           <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px' }}>
             <h2 style={{ marginTop: 0 }}>Leave a Rating</h2>
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={e => { e.preventDefault(); doSubmit(); }}>
               <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', justifyContent: 'center' }}>
                 {[1, 2, 3, 4, 5].map(star => (
                   <Star
@@ -89,14 +88,15 @@ export default function UserRating({ targetUserId, initialRating, totalRatings, 
                 <textarea
                   value={review}
                   onChange={e => setReview(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); doSubmit(); } }}
                   rows={3}
-                  placeholder="How was your experience?"
+                  placeholder="How was your experience? (Ctrl+Enter to submit)"
                   style={{ width: '100%' }}
                 />
               </div>
               <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
                 <button type="button" className="btn btn-outline btn-block" onClick={() => setShowModal(false)}>Cancel</button>
-                <button type="submit" className="btn btn-primary btn-block" disabled={isSubmitting || selected === 0}>
+                <button type="submit" className="btn btn-primary btn-block" disabled={isSubmitting || selected === 0} title="Ctrl+Enter">
                   {isSubmitting ? 'Submitting…' : 'Submit Rating'}
                 </button>
               </div>

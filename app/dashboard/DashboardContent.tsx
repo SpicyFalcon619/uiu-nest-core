@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { CheckCircle, Clock, XCircle, Building2, ShoppingBag, Search, Heart, List, FileText, Settings, Bell, RefreshCw } from 'lucide-react';
+import { CheckCircle, Clock, XCircle, Building2, ShoppingBag, Search, Heart, List, FileText, Settings, Bell, RefreshCw, MessageCircle } from 'lucide-react';
 import type { DashboardData, Profile } from '@/types';
 import { fmt, conditionLabel, conditionColor, statusBadge, propertyTypeLabel } from '@/lib/utils';
 import ListingCard from '@/components/ListingCard';
@@ -18,6 +18,7 @@ import {
   acceptSeekResponse, rejectSeekResponse,
 } from '@/app/actions/applications';
 import { toast } from 'sonner';
+import CustomSelect from '@/components/CustomSelect';
 
 export default function DashboardContent({ data, user }: { data: DashboardData; user: Profile }) {
   const router = useRouter();
@@ -222,6 +223,7 @@ export default function DashboardContent({ data, user }: { data: DashboardData; 
 
           <div className="sidebar-section-title" style={{ fontSize: '11px', fontWeight: 700, color: 'var(--ink-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '6px', marginTop: '18px', paddingLeft: '14px' }}>Interactions</div>
           {[
+            { id: 'messages',     icon: <MessageCircle size={16} />, label: 'Messages' },
             { id: 'watch',        icon: <Heart size={16} />,       label: 'Watchlist' },
             { id: 'offers',       icon: <List size={16} />,        label: 'Offers' },
             { id: 'applications', icon: <FileText size={16} />,    label: 'Housing Applications' },
@@ -247,6 +249,18 @@ export default function DashboardContent({ data, user }: { data: DashboardData; 
         {/* ── Main content ── */}
         <div className="dashboard-main">
 
+          {/* MESSAGES TAB */}
+          {activeTab === 'messages' && (
+            <div className="card" style={{ padding: '32px', textAlign: 'center' }}>
+              <MessageCircle size={48} style={{ color: 'var(--primary)', opacity: 0.7, marginBottom: 16 }} />
+              <h3 style={{ marginTop: 0 }}>Your Messages</h3>
+              <p style={{ color: 'var(--ink-muted)', marginBottom: 24 }}>Open the full messaging inbox to view and reply to all conversations.</p>
+              <Link href="/messages" className="btn btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                <MessageCircle size={16} /> Open Messages
+              </Link>
+            </div>
+          )}
+
           {/* LISTINGS TAB */}
           {activeTab === 'listings' && (
             <div className="card">
@@ -265,19 +279,18 @@ export default function DashboardContent({ data, user }: { data: DashboardData; 
                         const lid = l.listing_id || l.id;
                         return (
                           <tr key={lid}>
-                            <td><strong>{l.title}</strong></td>
+                            <td><Link href={`/listings/${lid}`} style={{ fontWeight: 600, color: 'inherit', textDecoration: 'none' }}>{l.title}</Link></td>
                             <td>{l.zone || l.zone_id}</td>
                             <td>
-                              <select
+                              <CustomSelect
                                 value={l.status}
-                                onChange={e => doUpdateListingStatus(lid, e.target.value)}
-                                disabled={isLoading(lid)}
-                                style={{ padding: '4px 8px', borderRadius: '6px', border: '1px solid var(--border)', fontSize: '13px', background: 'var(--surface-1)', cursor: 'pointer' }}
-                              >
-                                <option value="available">Available</option>
-                                <option value="occupied">Occupied</option>
-                                <option value="soon_vacant">Soon Vacant</option>
-                              </select>
+                                onChange={val => doUpdateListingStatus(lid, val)}
+                                options={[
+                                  { value: 'available',   label: 'Available' },
+                                  { value: 'occupied',    label: 'Occupied' },
+                                  { value: 'soon_vacant', label: 'Soon Vacant' },
+                                ]}
+                              />
                             </td>
                             <td>{fmt(l.costs?.total_monthly || 0)}</td>
                             <td>
@@ -313,20 +326,19 @@ export default function DashboardContent({ data, user }: { data: DashboardData; 
                         const iid = it.item_id || it.id;
                         return (
                           <tr key={iid}>
-                            <td><strong>{it.title}</strong></td>
+                            <td><Link href={`/exchange/${iid}`} style={{ fontWeight: 600, color: 'inherit', textDecoration: 'none' }}>{it.title}</Link></td>
                             <td>{fmt(it.asking_price || 0)}</td>
                             <td><span className={`badge ${conditionColor(it.item_condition)}`}>{conditionLabel(it.item_condition)}</span></td>
                             <td>
-                              <select
+                              <CustomSelect
                                 value={it.status || 'available'}
-                                onChange={e => doUpdateItemStatus(iid, e.target.value)}
-                                disabled={isLoading(iid)}
-                                style={{ padding: '4px 8px', borderRadius: '6px', border: '1px solid var(--border)', fontSize: '13px', background: 'var(--surface-1)', cursor: 'pointer' }}
-                              >
-                                <option value="available">Available</option>
-                                <option value="sold">Sold</option>
-                                <option value="withdrawn">Withdrawn</option>
-                              </select>
+                                onChange={val => doUpdateItemStatus(iid, val)}
+                                options={[
+                                  { value: 'available',  label: 'Available' },
+                                  { value: 'sold',       label: 'Sold' },
+                                  { value: 'withdrawn',  label: 'Withdrawn' },
+                                ]}
+                              />
                             </td>
                             <td>
                               <Link className="btn btn-primary btn-sm" href={`/exchange/${iid}`}>View</Link>
@@ -462,8 +474,13 @@ export default function DashboardContent({ data, user }: { data: DashboardData; 
                           <tr key={o.offer_id}>
                             <td><Link href={`/exchange/${o.item_id}`} style={{ color: 'var(--primary)', fontWeight: 600 }}>{o.title}</Link></td>
                             <td>
-                              <div>{o.buyer_name}</div>
-                              {o.message && <div style={{ fontSize: '12px', color: 'var(--ink-muted)', marginTop: 2 }}>"{o.message}"</div>}
+                              <div style={{ fontWeight: 500 }}>{o.buyer_name}</div>
+                              {o.message && <div style={{ fontSize: '12px', color: 'var(--ink-muted)', marginTop: 2, fontStyle: 'italic' }}>"{o.message}"</div>}
+                              {o.buyer_id && (
+                                <Link href={`/messages`} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: '12px', color: 'var(--primary)', marginTop: 6, textDecoration: 'none', fontWeight: 500 }}>
+                                  <MessageCircle size={12} /> Message
+                                </Link>
+                              )}
                             </td>
                             <td style={{ fontWeight: 600 }}>{fmt(o.counter_price || o.offer_price)}</td>
                             <td>{statusBadgeEl(o.status)}</td>
@@ -539,10 +556,15 @@ export default function DashboardContent({ data, user }: { data: DashboardData; 
                       <tbody>
                         {appsRecv.map(a => (
                           <tr key={a.application_id}>
-                            <td><strong>{a.listing_title}</strong></td>
+                            <td><Link href={`/listings/${a.listing_id}`} style={{ fontWeight: 600, color: 'inherit', textDecoration: 'none' }}>{a.listing_title}</Link></td>
                             <td>
-                              <div>{a.applicant_name}</div>
+                              <div style={{ fontWeight: 500 }}>{a.applicant_name}</div>
                               <div style={{ fontSize: '12px', color: 'var(--ink-muted)' }}>{a.applicant_email}</div>
+                              {a.applicant_id && (
+                                <Link href={`/messages`} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: '12px', color: 'var(--primary)', marginTop: 6, textDecoration: 'none', fontWeight: 500 }}>
+                                  <MessageCircle size={12} /> Message
+                                </Link>
+                              )}
                             </td>
                             <td>
                               <div style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={a.message}>
@@ -577,7 +599,7 @@ export default function DashboardContent({ data, user }: { data: DashboardData; 
                       <tbody>
                         {data.appsSent.map(a => (
                           <tr key={a.application_id}>
-                            <td><strong>{a.listing_title}</strong></td>
+                            <td><Link href={`/listings/${a.listing_id}`} style={{ fontWeight: 600, color: 'inherit', textDecoration: 'none' }}>{a.listing_title}</Link></td>
                             <td>{a.owner_name || '—'}</td>
                             <td>{statusBadgeEl(a.status)}</td>
                             <td style={{ fontSize: '13px', color: 'var(--ink-muted)' }}>{a.created_at ? new Date(a.created_at).toLocaleDateString() : ''}</td>

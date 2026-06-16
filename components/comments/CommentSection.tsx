@@ -34,9 +34,7 @@ export default function CommentSection({ itemId, initialComments, isLoggedIn, cu
   const [isSubmitting, setIsSubmitting] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const handleSubmit = async (e: React.SyntheticEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const text = newComment.trim();
+  const doSubmit = async (text: string) => {
     if (!text || !isLoggedIn) return;
 
     setIsSubmitting(true);
@@ -104,7 +102,7 @@ export default function CommentSection({ itemId, initialComments, isLoggedIn, cu
       </h3>
 
       {isLoggedIn ? (
-        <form onSubmit={handleSubmit} style={{ marginBottom: '28px', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+        <form onSubmit={e => { e.preventDefault(); doSubmit(newComment.trim()); }} style={{ marginBottom: '28px', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
           <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--primary)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 14, flexShrink: 0, marginTop: 2 }}>
             You
           </div>
@@ -113,12 +111,18 @@ export default function CommentSection({ itemId, initialComments, isLoggedIn, cu
               ref={textareaRef}
               value={newComment}
               onChange={e => setNewComment(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); handleSubmit(e as any); } }}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                  e.preventDefault();
+                  doSubmit(newComment.trim());
+                }
+              }}
               placeholder="Ask a question or leave a comment… (Ctrl+Enter to send)"
               style={{ width: '100%', minHeight: '72px', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border)', fontFamily: 'inherit', fontSize: '14px', resize: 'vertical', boxSizing: 'border-box' }}
               disabled={isSubmitting}
             />
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px' }}>
+              <span style={{ fontSize: '11px', color: 'var(--ink-muted)' }}>Ctrl+Enter to send</span>
               <button type="submit" className="btn btn-primary btn-sm" disabled={isSubmitting || !newComment.trim()} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <Send size={14} /> {isSubmitting ? 'Posting…' : 'Post'}
               </button>
