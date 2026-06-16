@@ -125,6 +125,10 @@ export default function DashboardContent({ data, user }: { data: DashboardData; 
     if (res?.success) {
       toast.success('Application accepted! Applicant notified.');
       setAppsRecv(prev => prev.map(a => a.application_id === appId ? { ...a, status: 'accepted' } : a));
+      // Auto-mark the listing as occupied in local state
+      if (res.listingId) {
+        setMyListings(prev => prev.map(l => (l.listing_id || l.id) === res.listingId ? { ...l, status: 'occupied' } : l));
+      }
     }
   };
   const doRejectApp = async (appId: number) => {
@@ -466,79 +470,103 @@ export default function DashboardContent({ data, user }: { data: DashboardData; 
                 <h3 style={{ marginTop: 0, color: 'var(--navy)' }}>Offers Received</h3>
                 {offersRecv.length === 0 ? (
                   <p style={{ color: 'var(--ink-muted)', textAlign: 'center', padding: '12px 0' }}>No offers received.</p>
-                ) : (
-                  <div className="table-responsive">
-                    <table className="table">
-                      <thead><tr><th>Item</th><th>Buyer</th><th>Offer</th><th>Status</th><th>Actions</th></tr></thead>
-                      <tbody>
-                        {offersRecv.map(o => (
-                          <tr key={o.offer_id}>
-                            <td><Link href={`/exchange/${o.item_id}`} style={{ color: 'var(--primary)', fontWeight: 600 }}>{o.title}</Link></td>
-                            <td>
-                              <div style={{ fontWeight: 500 }}>{o.buyer_name}</div>
-                              {o.message && <div style={{ fontSize: '12px', color: 'var(--ink-muted)', marginTop: 2, fontStyle: 'italic' }}>"{o.message}"</div>}
-                              {o.buyer_id && (
-                                <Link href={`/messages`} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: '12px', color: 'var(--primary)', marginTop: 6, textDecoration: 'none', fontWeight: 500 }}>
-                                  <MessageCircle size={12} /> Message
-                                </Link>
-                              )}
-                            </td>
-                            <td style={{ fontWeight: 600 }}>{fmt(o.counter_price || o.offer_price)}</td>
-                            <td>{statusBadgeEl(o.status)}</td>
-                            <td>
-                              {o.status === 'pending' && (
-                                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                                  <button className="btn btn-success btn-sm" onClick={() => doAcceptOffer(o.offer_id)} disabled={isLoading(o.offer_id)}>Accept</button>
-                                  <button className="btn btn-outline btn-sm" onClick={() => { setCounterModal({ offerId: o.offer_id, title: o.title }); setCounterPrice(''); }} disabled={isLoading(o.offer_id)}>Counter</button>
-                                  <button className="btn btn-danger btn-sm" onClick={() => doRejectOffer(o.offer_id)} disabled={isLoading(o.offer_id)}>Reject</button>
-                                </div>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+                ) : (() => {
+                  // Group by item_id
+                  const byItem = new Map<number, any[]>();
+                  offersRecv.forEach(o => {
+                    if (!byItem.has(o.item_id)) byItem.set(o.item_id, []);
+                    byItem.get(o.item_id)!.push(o);
+                  });
+                  return Array.from(byItem.entries()).map(([itemId, offers]) => (
+                    <div key={itemId} style={{ marginBottom: 20 }}>
+                      <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--ink)', marginBottom: 8, paddingBottom: 6, borderBottom: '1px solid var(--border)' }}>
+                        <Link href={`/exchange/${itemId}`} style={{ color: 'var(--primary)', textDecoration: 'none' }}>{offers[0].title}</Link>
+                        <span style={{ marginLeft: 8, fontSize: 12, color: 'var(--ink-muted)', fontWeight: 400 }}>{offers.length} offer{offers.length !== 1 ? 's' : ''}</span>
+                      </div>
+                      <div className="table-responsive">
+                        <table className="table">
+                          <thead><tr><th>Buyer</th><th>Offer</th><th>Status</th><th>Actions</th></tr></thead>
+                          <tbody>
+                            {offers.map(o => (
+                              <tr key={o.offer_id}>
+                                <td>
+                                  <div style={{ fontWeight: 500 }}>{o.buyer_name}</div>
+                                  {o.message && <div style={{ fontSize: '12px', color: 'var(--ink-muted)', marginTop: 2, fontStyle: 'italic' }}>"{o.message}"</div>}
+                                  {o.buyer_id && (
+                                    <Link href="/messages" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: '12px', color: 'var(--primary)', marginTop: 6, textDecoration: 'none', fontWeight: 500 }}>
+                                      <MessageCircle size={12} /> Message
+                                    </Link>
+                                  )}
+                                </td>
+                                <td style={{ fontWeight: 600 }}>{fmt(o.counter_price || o.offer_price)}</td>
+                                <td>{statusBadgeEl(o.status)}</td>
+                                <td>
+                                  {o.status === 'pending' && (
+                                    <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                                      <button className="btn btn-success btn-sm" onClick={() => doAcceptOffer(o.offer_id)} disabled={isLoading(o.offer_id)}>Accept</button>
+                                      <button className="btn btn-outline btn-sm" onClick={() => { setCounterModal({ offerId: o.offer_id, title: o.title }); setCounterPrice(''); }} disabled={isLoading(o.offer_id)}>Counter</button>
+                                      <button className="btn btn-danger btn-sm" onClick={() => doRejectOffer(o.offer_id)} disabled={isLoading(o.offer_id)}>Reject</button>
+                                    </div>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ));
+                })()}
               </div>
 
               <div className="card">
                 <h3 style={{ marginTop: 0, color: 'var(--navy)' }}>Offers Sent</h3>
                 {offersSent.length === 0 ? (
                   <p style={{ color: 'var(--ink-muted)', textAlign: 'center', padding: '12px 0' }}>No outgoing offers.</p>
-                ) : (
-                  <div className="table-responsive">
-                    <table className="table">
-                      <thead><tr><th>Item</th><th>Seller</th><th>Your Bid</th><th>Status</th><th>Actions</th></tr></thead>
-                      <tbody>
-                        {offersSent.map(o => (
-                          <tr key={o.offer_id}>
-                            <td><Link href={`/exchange/${o.item_id}`} style={{ color: 'var(--primary)', fontWeight: 600 }}>{o.title}</Link></td>
-                            <td>{o.seller_name}</td>
-                            <td style={{ fontWeight: 600 }}>
-                              {fmt(o.offer_price)}
-                              {o.counter_price && <div style={{ fontSize: '12px', color: 'var(--gold)' }}>Counter: {fmt(o.counter_price)}</div>}
-                            </td>
-                            <td>{statusBadgeEl(o.status)}</td>
-                            <td>
-                              <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                                {o.status === 'countered' && (
-                                  <>
-                                    <button className="btn btn-success btn-sm" onClick={() => doAcceptCounter(o.offer_id)} disabled={isLoading(o.offer_id)}>Accept Counter</button>
-                                    <button className="btn btn-danger btn-sm" onClick={() => doRejectOffer(o.offer_id)} disabled={isLoading(o.offer_id)}>Decline</button>
-                                  </>
-                                )}
-                                {o.status === 'pending' && (
-                                  <button className="btn btn-outline btn-sm" onClick={() => doWithdrawOffer(o.offer_id)} disabled={isLoading(o.offer_id)}>Withdraw</button>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+                ) : (() => {
+                  const byItem = new Map<number, any[]>();
+                  offersSent.forEach(o => {
+                    if (!byItem.has(o.item_id)) byItem.set(o.item_id, []);
+                    byItem.get(o.item_id)!.push(o);
+                  });
+                  return Array.from(byItem.entries()).map(([itemId, offers]) => (
+                    <div key={itemId} style={{ marginBottom: 20 }}>
+                      <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--ink)', marginBottom: 8, paddingBottom: 6, borderBottom: '1px solid var(--border)' }}>
+                        <Link href={`/exchange/${itemId}`} style={{ color: 'var(--primary)', textDecoration: 'none' }}>{offers[0].title}</Link>
+                        <span style={{ marginLeft: 8, fontSize: 12, color: 'var(--ink-muted)', fontWeight: 400 }}>Seller: {offers[0].seller_name}</span>
+                      </div>
+                      <div className="table-responsive">
+                        <table className="table">
+                          <thead><tr><th>Your Bid</th><th>Status</th><th>Actions</th></tr></thead>
+                          <tbody>
+                            {offers.map(o => (
+                              <tr key={o.offer_id}>
+                                <td style={{ fontWeight: 600 }}>
+                                  {fmt(o.offer_price)}
+                                  {o.counter_price && <div style={{ fontSize: '12px', color: 'var(--gold)' }}>Counter: {fmt(o.counter_price)}</div>}
+                                </td>
+                                <td>{statusBadgeEl(o.status)}</td>
+                                <td>
+                                  <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                                    {o.status === 'countered' && (
+                                      <>
+                                        <button className="btn btn-success btn-sm" onClick={() => doAcceptCounter(o.offer_id)} disabled={isLoading(o.offer_id)}>Accept Counter</button>
+                                        <button className="btn btn-danger btn-sm" onClick={() => doRejectOffer(o.offer_id)} disabled={isLoading(o.offer_id)}>Decline</button>
+                                      </>
+                                    )}
+                                    {o.status === 'pending' && (
+                                      <button className="btn btn-outline btn-sm" onClick={() => doWithdrawOffer(o.offer_id)} disabled={isLoading(o.offer_id)}>Withdraw</button>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ));
+                })()}
               </div>
             </div>
           )}
@@ -550,43 +578,55 @@ export default function DashboardContent({ data, user }: { data: DashboardData; 
                 <h3 style={{ marginTop: 0, color: 'var(--navy)' }}>Applications Received</h3>
                 {appsRecv.length === 0 ? (
                   <p style={{ color: 'var(--ink-muted)', textAlign: 'center', padding: '12px 0' }}>No applications received.</p>
-                ) : (
-                  <div className="table-responsive">
-                    <table className="table">
-                      <thead><tr><th>Listing</th><th>Applicant</th><th>Message</th><th>Status</th><th>Actions</th></tr></thead>
-                      <tbody>
-                        {appsRecv.map(a => (
-                          <tr key={a.application_id}>
-                            <td><Link href={`/listings/${a.listing_id}`} style={{ fontWeight: 600, color: 'inherit', textDecoration: 'none' }}>{a.listing_title}</Link></td>
-                            <td>
-                              <div style={{ fontWeight: 500 }}>{a.applicant_name}</div>
-                              <div style={{ fontSize: '12px', color: 'var(--ink-muted)' }}>{a.applicant_email}</div>
-                              {a.applicant_id && (
-                                <Link href={`/messages`} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: '12px', color: 'var(--primary)', marginTop: 6, textDecoration: 'none', fontWeight: 500 }}>
-                                  <MessageCircle size={12} /> Message
-                                </Link>
-                              )}
-                            </td>
-                            <td>
-                              <div style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={a.message}>
-                                {a.message || '—'}
-                              </div>
-                            </td>
-                            <td>{statusBadgeEl(a.status)}</td>
-                            <td>
-                              {a.status === 'pending' && (
-                                <div style={{ display: 'flex', gap: '4px' }}>
-                                  <button className="btn btn-success btn-sm" onClick={() => doAcceptApp(a.application_id)} disabled={isLoading(a.application_id)}>Accept</button>
-                                  <button className="btn btn-danger btn-sm" onClick={() => doRejectApp(a.application_id)} disabled={isLoading(a.application_id)}>Reject</button>
-                                </div>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+                ) : (() => {
+                  const byListing = new Map<number, any[]>();
+                  appsRecv.forEach(a => {
+                    if (!byListing.has(a.listing_id)) byListing.set(a.listing_id, []);
+                    byListing.get(a.listing_id)!.push(a);
+                  });
+                  return Array.from(byListing.entries()).map(([listingId, apps]) => (
+                    <div key={listingId} style={{ marginBottom: 20 }}>
+                      <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--ink)', marginBottom: 8, paddingBottom: 6, borderBottom: '1px solid var(--border)' }}>
+                        <Link href={`/listings/${listingId}`} style={{ color: 'var(--primary)', textDecoration: 'none' }}>{apps[0].listing_title}</Link>
+                        <span style={{ marginLeft: 8, fontSize: 12, color: 'var(--ink-muted)', fontWeight: 400 }}>{apps.length} applicant{apps.length !== 1 ? 's' : ''}</span>
+                      </div>
+                      <div className="table-responsive">
+                        <table className="table">
+                          <thead><tr><th>Applicant</th><th>Message</th><th>Status</th><th>Actions</th></tr></thead>
+                          <tbody>
+                            {apps.map(a => (
+                              <tr key={a.application_id}>
+                                <td>
+                                  <div style={{ fontWeight: 500 }}>{a.applicant_name}</div>
+                                  <div style={{ fontSize: '12px', color: 'var(--ink-muted)' }}>{a.applicant_email}</div>
+                                  {a.applicant_id && (
+                                    <Link href="/messages" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: '12px', color: 'var(--primary)', marginTop: 6, textDecoration: 'none', fontWeight: 500 }}>
+                                      <MessageCircle size={12} /> Message
+                                    </Link>
+                                  )}
+                                </td>
+                                <td>
+                                  <div style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={a.message}>
+                                    {a.message || '—'}
+                                  </div>
+                                </td>
+                                <td>{statusBadgeEl(a.status)}</td>
+                                <td>
+                                  {a.status === 'pending' && (
+                                    <div style={{ display: 'flex', gap: '4px' }}>
+                                      <button className="btn btn-success btn-sm" onClick={() => doAcceptApp(a.application_id)} disabled={isLoading(a.application_id)}>Accept</button>
+                                      <button className="btn btn-danger btn-sm" onClick={() => doRejectApp(a.application_id)} disabled={isLoading(a.application_id)}>Reject</button>
+                                    </div>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ));
+                })()}
               </div>
 
               <div className="card">

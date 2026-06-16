@@ -9,6 +9,18 @@ export async function submitApplication(listingId: number, ownerId: string, list
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: 'Unauthorized' };
 
+  // Check the listing is currently available before allowing a new application
+  const { data: listing } = await supabase
+    .from('listings')
+    .select('status')
+    .eq('listing_id', listingId)
+    .single();
+
+  if (!listing || listing.status === 'occupied') {
+    return { error: 'This listing is no longer available.' };
+  }
+
+  // Block duplicate pending applications only (accepted/rejected from a previous occupancy don't count)
   const { data: existing } = await supabase
     .from('applications')
     .select('application_id')
@@ -63,15 +75,20 @@ export async function acceptApplication(applicationId: number) {
 
   if (error) return { error: error.message };
 
+  // Auto-mark the listing as occupied
+  const listingId = (app.listing as any).listing_id;
+  await supabase.from('listings').update({ status: 'occupied' }).eq('listing_id', listingId);
+
   await createUserNotification(
     app.applicant_id,
     'application_accepted',
-    `Your application for "${(app.listing as any).title}" was accepted! Contact the landlord to proceed.`,
-    `/listings/${(app.listing as any).listing_id}`
+    `Your application for "${(app.listing as any).title}" was accepted! Contact the landlord to arrange moving in.`,
+    `/dashboard?tab=applications`
   );
 
   revalidatePath('/dashboard');
-  return { success: true };
+  revalidatePath(`/listings/${listingId}`);
+  return { success: true, listingId };
 }
 
 export async function rejectApplication(applicationId: number) {
@@ -99,7 +116,7 @@ export async function rejectApplication(applicationId: number) {
     app.applicant_id,
     'application_rejected',
     `Your application for "${(app.listing as any).title}" was not successful this time.`,
-    `/listings/${(app.listing as any).listing_id}`
+    `/dashboard?tab=applications`
   );
 
   revalidatePath('/dashboard');

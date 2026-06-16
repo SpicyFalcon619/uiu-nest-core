@@ -45,7 +45,7 @@ export default async function DashboardPage() {
   ] = await Promise.all([
     supabase.from('listings').select('*, costs:utility_costs(*)').eq('user_id', userId),
     supabase.from('items').select('*').eq('seller_id', userId),
-    supabase.from('watchlists').select('listing:listings(*)').eq('user_id', userId),
+    supabase.from('watchlists').select('listing:listings(*, costs:utility_costs(*))').eq('user_id', userId),
     supabase.from('offers').select('*, item:items(title), seller:profiles!offers_item_seller_id_fkey(name, email)').eq('buyer_id', userId),
     supabase.from('offers').select('*, item:items(title), buyer:profiles!offers_buyer_id_fkey(name, email)').eq('item.seller_id', userId), // Actually need to join to get items where seller is me
     supabase.from('applications').select('*, listing:listings(title, user_id, owner_name:profiles!listings_user_id_fkey(name))').eq('applicant_id', userId),

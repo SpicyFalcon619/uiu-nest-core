@@ -18,7 +18,8 @@ interface SellItemModalProps {
 
 export default function SellItemModal({ isOpen, onClose, zones, onSuccess }: SellItemModalProps) {
   const [loading, setLoading] = useState(false);
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
+  const [previews, setPreviews] = useState<string[]>([]);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -55,12 +56,16 @@ export default function SellItemModal({ isOpen, onClose, zones, onSuccess }: Sel
     }
 
     let photo_url = null;
-    if (file) {
+    let photos: string[] = [];
+    if (files.length > 0) {
       try {
-        const fileData = new FormData();
-        fileData.append('file', file);
-        const result = await uploadExchangeItemPhoto(fileData);
-        photo_url = result.path;
+        for (const f of files) {
+          const fileData = new FormData();
+          fileData.append('file', f);
+          const result = await uploadExchangeItemPhoto(fileData);
+          photos.push(result.path);
+        }
+        photo_url = photos[0];
       } catch (err: any) {
         toast.error('Failed to upload image: ' + err.message);
         setLoading(false);
@@ -77,7 +82,8 @@ export default function SellItemModal({ isOpen, onClose, zones, onSuccess }: Sel
       zone_id: parseInt(formData.zone_id),
       description: formData.description,
       status: 'available',
-      photo_url: photo_url
+      photo_url: photo_url,
+      photos: photos.length > 0 ? photos : null,
       // listing_id could be added here if linked
     });
 
@@ -158,8 +164,35 @@ export default function SellItemModal({ isOpen, onClose, zones, onSuccess }: Sel
         </div>
         
         <div className="form-group">
-          <label>Item Photo (Optional)</label>
-          <input type="file" accept="image/*" onChange={(e) => setFile(e.target.files ? e.target.files[0] : null)} />
+          <label>Item Photos (Optional, up to 5)</label>
+          <input
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={e => {
+              const selected = Array.from(e.target.files || []).slice(0, 5);
+              setFiles(selected);
+              setPreviews(selected.map(f => URL.createObjectURL(f)));
+            }}
+          />
+          {previews.length > 0 && (
+            <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+              {previews.map((src, i) => (
+                <div key={i} style={{ position: 'relative' }}>
+                  <img src={src} alt="" style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--border)' }} />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const nf = files.filter((_, fi) => fi !== i);
+                      setFiles(nf);
+                      setPreviews(nf.map(f => URL.createObjectURL(f)));
+                    }}
+                    style={{ position: 'absolute', top: -6, right: -6, width: 18, height: 18, borderRadius: '50%', background: '#be3d2f', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 11, lineHeight: '18px', textAlign: 'center', padding: 0 }}
+                  >×</button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
         
         <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '24px' }}>

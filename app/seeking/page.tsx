@@ -14,6 +14,11 @@ export default async function SeekingPage() {
   // Check auth
   const { data: { user } } = await supabase.auth.getUser();
   const isLoggedIn = !!user;
+  let isAdmin = false;
+  if (isLoggedIn) {
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user!.id).single();
+    if (profile?.role === 'admin') isAdmin = true;
+  }
 
   // Fetch zones for filter
   const { data: zones } = await supabase.from('zones').select('*').order('zone_name');
@@ -38,10 +43,11 @@ export default async function SeekingPage() {
 
   return (
     <Suspense fallback={<div className="container" style={{ padding: '40px 0', textAlign: 'center' }}>Loading...</div>}>
-      <SeekingContent 
-        posts={formattedPosts} 
+      <SeekingContent
+        posts={formattedPosts}
         zones={(zones as Zone[]) || []}
         isLoggedIn={isLoggedIn}
+        isAdmin={isAdmin}
       />
     </Suspense>
   );

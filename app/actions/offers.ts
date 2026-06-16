@@ -31,8 +31,8 @@ export async function acceptOffer(offerId: number) {
   await createUserNotification(
     offer.buyer_id,
     'offer_accepted',
-    `Your offer for "${(offer.item as any).title}" was accepted! Contact the seller to arrange the exchange.`,
-    `/exchange/${(offer.item as any).item_id}`
+    `Your offer for "${(offer.item as any).title}" was accepted! Message the seller to arrange the exchange.`,
+    `/messages`
   );
 
   revalidatePath('/dashboard');
@@ -65,7 +65,7 @@ export async function rejectOffer(offerId: number) {
     offer.buyer_id,
     'offer_rejected',
     `Your offer for "${(offer.item as any).title}" was declined by the seller.`,
-    `/exchange/${(offer.item as any).item_id}`
+    `/dashboard?tab=offers`
   );
 
   revalidatePath('/dashboard');
@@ -153,8 +153,8 @@ export async function acceptCounterOffer(offerId: number) {
   await createUserNotification(
     (offer.item as any).seller_id,
     'offer_accepted',
-    `The buyer accepted your counter-offer for "${(offer.item as any).title}".`,
-    `/dashboard?tab=offers`
+    `The buyer accepted your counter-offer for "${(offer.item as any).title}". Message them to arrange the exchange.`,
+    `/messages`
   );
 
   revalidatePath('/dashboard');

@@ -14,20 +14,19 @@ export async function getOrCreateConversation(
 
   const [a, b] = user.id < otherUserId ? [user.id, otherUserId] : [otherUserId, user.id];
 
-  let query = supabase
+  // Find any existing conversation between this pair regardless of listing/item context
+  const { data: existing } = await supabase
     .from('conversations')
     .select('id')
     .eq('participant_a', a)
-    .eq('participant_b', b);
+    .eq('participant_b', b)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
-  if (listingId) query = query.eq('listing_id', listingId);
-  else query = query.is('listing_id', null);
-  if (itemId) query = query.eq('item_id', itemId);
-  else query = query.is('item_id', null);
-
-  const { data: existing } = await query.maybeSingle();
   if (existing) return { conversationId: existing.id };
 
+  // No conversation yet — create one, storing context for reference
   const { data: created, error } = await supabase
     .from('conversations')
     .insert({ participant_a: a, participant_b: b, listing_id: listingId ?? null, item_id: itemId ?? null })

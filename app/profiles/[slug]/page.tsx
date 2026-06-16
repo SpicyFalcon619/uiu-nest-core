@@ -111,7 +111,7 @@ export default async function PublicProfilePage({ params }: Props) {
             ) : (
               <div style={{
                 width: 120, height: 120, borderRadius: '50%',
-                background: 'var(--primary)', color: 'white',
+                background: 'var(--emerald)', color: '#fff',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontSize: 40, fontWeight: 700, border: '4px solid var(--border)',
               }}>

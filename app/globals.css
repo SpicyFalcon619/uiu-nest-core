@@ -32,6 +32,8 @@
   --info:      #0369A1;
 
   /* ── Deprecated aliases (kept for JS-rendered HTML compatibility) ── */
+  --primary:   #1A5C45;        /* alias for --emerald */
+  --primary-light: #E8F5EE;   /* alias for --emerald-soft */
   --navy:      #1A5C45;
   --gold:      #2E7D5A;
   --white:     #FFFFFF;

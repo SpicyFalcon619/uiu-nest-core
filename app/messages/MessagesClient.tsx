@@ -1,13 +1,16 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { sendMessage, markConversationRead, markConversationUnread } from '@/app/actions/messages';
 import { avatarInitials } from '@/lib/utils';
-import { Send, MessageCircle, Building2, ShoppingBag, CheckCheck, Search } from 'lucide-react';
+import { Send, MessageCircle, Building2, ShoppingBag, CheckCheck, Search, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 import Link from 'next/link';
 
+// ─────────────────────────────────────────────────────────────
+// Types
+// ─────────────────────────────────────────────────────────────
 interface Conversation {
   id: string;
   created_at: string;
@@ -29,13 +32,25 @@ interface Message {
   created_at: string;
 }
 
+/** One entry in the sidebar — represents a person, grouping all their conversations */
+interface PersonThread {
+  personId: string;
+  otherUser: Conversation['other_user'];
+  convos: Conversation[];
+  totalUnread: number;
+  latestMessage?: Conversation['last_message'];
+  latestConvoId: string;
+}
+
 interface MessagesClientProps {
   conversations: Conversation[];
   currentUserId: string;
   initialConvoId: string | null;
 }
 
-// ── tiny helpers ────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
+// Constants & helpers
+// ─────────────────────────────────────────────────────────────
 const EMERALD       = '#1A5C45';
 const EMERALD_SOFT  = '#E8F5EE';
 const EMERALD_LIGHT = '#EEF7F2';
@@ -55,6 +70,15 @@ function Avatar({ src, name, size = 40 }: { src?: string; name: string; size?: n
   );
 }
 
+function ContextLabel({ conv }: { conv: Conversation }) {
+  if (conv.item_title)    return <><ShoppingBag size={10} /> {conv.item_title}</>;
+  if (conv.listing_title) return <><Building2 size={10} /> {conv.listing_title}</>;
+  return <>General</>;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Component
+// ─────────────────────────────────────────────────────────────
 export default function MessagesClient({ conversations: initialConvos, currentUserId, initialConvoId }: MessagesClientProps) {
   const [convos, setConvos]               = useState<Conversation[]>(initialConvos);
   const [activeConvoId, setActiveConvoId] = useState<string | null>(initialConvoId);
@@ -64,17 +88,55 @@ export default function MessagesClient({ conversations: initialConvos, currentUs
   const [loadingMsgs, setLoadingMsgs]     = useState(false);
   const [search, setSearch]               = useState('');
   const [ctxMenu, setCtxMenu]             = useState<{ convId: string; x: number; y: number } | null>(null);
+  const [dealsOpen, setDealsOpen]         = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef  = useRef<HTMLInputElement>(null);
+  const dealsRef  = useRef<HTMLDivElement>(null);
   const supabase  = createClient();
 
-  const activeConvo = convos.find(c => c.id === activeConvoId);
+  // ── Group convos by person ──────────────────────────────────
+  const persons: PersonThread[] = useMemo(() => {
+    const map = new Map<string, PersonThread>();
+    convos.forEach(c => {
+      const pid = c.other_user.id;
+      if (!map.has(pid)) {
+        map.set(pid, {
+          personId: pid,
+          otherUser: c.other_user,
+          convos: [],
+          totalUnread: 0,
+          latestMessage: undefined,
+          latestConvoId: c.id,
+        });
+      }
+      const pt = map.get(pid)!;
+      pt.convos.push(c);
+      pt.totalUnread += c.unread_count;
+      // pick the convo with the most recent message as "latest"
+      const ptTime = pt.latestMessage?.created_at ? new Date(pt.latestMessage.created_at).getTime() : 0;
+      const cTime  = c.last_message?.created_at   ? new Date(c.last_message.created_at).getTime()   : 0;
+      if (cTime >= ptTime) {
+        pt.latestMessage  = c.last_message ?? undefined;
+        pt.latestConvoId  = c.id;
+      }
+    });
+    // sort persons by most recent message
+    return Array.from(map.values()).sort((a, b) => {
+      const aT = a.latestMessage?.created_at ? new Date(a.latestMessage.created_at).getTime() : 0;
+      const bT = b.latestMessage?.created_at ? new Date(b.latestMessage.created_at).getTime() : 0;
+      return bT - aT;
+    });
+  }, [convos]);
 
-  // Load messages
+  const activeConvo  = convos.find(c => c.id === activeConvoId);
+  const activePerson = activeConvo ? persons.find(p => p.personId === activeConvo.other_user.id) : null;
+
+  // ── Load messages ───────────────────────────────────────────
   useEffect(() => {
     if (!activeConvoId) return;
     setLoadingMsgs(true);
     setMessages([]);
+    setDealsOpen(false);
     supabase
       .from('messages')
       .select('*')
@@ -86,10 +148,10 @@ export default function MessagesClient({ conversations: initialConvos, currentUs
     setTimeout(() => inputRef.current?.focus(), 100);
   }, [activeConvoId]);
 
-  // Scroll to bottom
+  // ── Scroll to bottom ────────────────────────────────────────
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
-  // Realtime — INSERT new messages + UPDATE read status
+  // ── Realtime ────────────────────────────────────────────────
   useEffect(() => {
     if (!activeConvoId) return;
     const channel = supabase
@@ -107,7 +169,7 @@ export default function MessagesClient({ conversations: initialConvos, currentUs
     return () => { supabase.removeChannel(channel); };
   }, [activeConvoId]);
 
-  // Close context menu on outside click
+  // ── Close menus on outside click ────────────────────────────
   useEffect(() => {
     if (!ctxMenu) return;
     const close = () => setCtxMenu(null);
@@ -115,6 +177,16 @@ export default function MessagesClient({ conversations: initialConvos, currentUs
     return () => document.removeEventListener('mousedown', close);
   }, [ctxMenu]);
 
+  useEffect(() => {
+    if (!dealsOpen) return;
+    const close = (e: MouseEvent) => {
+      if (dealsRef.current && !dealsRef.current.contains(e.target as Node)) setDealsOpen(false);
+    };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [dealsOpen]);
+
+  // ── Send ─────────────────────────────────────────────────────
   const handleSend = useCallback(async () => {
     const text = input.trim();
     if (!text || !activeConvoId || sending) return;
@@ -130,7 +202,6 @@ export default function MessagesClient({ conversations: initialConvos, currentUs
       setInput(text);
     } else if (res.message) {
       const real = res.message as Message;
-      // If realtime already inserted the real message, just drop the optimistic copy
       setMessages(prev =>
         prev.some(m => m.id === real.id)
           ? prev.filter(m => m.id !== optimistic.id)
@@ -142,37 +213,57 @@ export default function MessagesClient({ conversations: initialConvos, currentUs
     }
   }, [input, activeConvoId, sending, currentUserId]);
 
+  // ── Mark unread ──────────────────────────────────────────────
   const handleMarkUnread = useCallback(async (convId: string) => {
     await markConversationUnread(convId);
     setConvos(prev => prev.map(c => c.id === convId ? { ...c, unread_count: 1 } : c));
     if (activeConvoId === convId) setActiveConvoId(null);
   }, [activeConvoId]);
 
+  // ── Switch to person (default to their latest convo) ────────
+  const selectPerson = (pt: PersonThread) => {
+    setActiveConvoId(pt.latestConvoId);
+  };
+
+  // ── Time formatters ──────────────────────────────────────────
+  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const fmtHHMM = (d: Date) => {
+    const h = d.getHours(), m = d.getMinutes();
+    return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`;
+  };
   const fmtTime = (iso: string) => {
     const d = new Date(iso), now = new Date();
-    if (d.toDateString() === now.toDateString()) return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    if (d.toDateString() === now.toDateString()) return fmtHHMM(d);
     const y = new Date(now); y.setDate(now.getDate() - 1);
     if (d.toDateString() === y.toDateString()) return 'Yesterday';
-    return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    return `${MONTHS[d.getMonth()]} ${d.getDate()}`;
   };
-  const fmtFull = (iso: string) => new Date(iso).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  const fmtFull = (iso: string) => {
+    const d = new Date(iso);
+    return `${MONTHS[d.getMonth()]} ${d.getDate()}, ${fmtHHMM(d)}`;
+  };
+  const FULL_MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
-  const filtered = search.trim()
-    ? convos.filter(c => c.other_user.name.toLowerCase().includes(search.toLowerCase()) || (c.listing_title || '').toLowerCase().includes(search.toLowerCase()) || (c.item_title || '').toLowerCase().includes(search.toLowerCase()))
-    : convos;
+  // ── Search filter (searches over persons) ───────────────────
+  const filteredPersons = search.trim()
+    ? persons.filter(pt =>
+        pt.otherUser.name.toLowerCase().includes(search.toLowerCase()) ||
+        pt.convos.some(c => (c.listing_title || '').toLowerCase().includes(search.toLowerCase()) || (c.item_title || '').toLowerCase().includes(search.toLowerCase()))
+      )
+    : persons;
 
-  const totalUnread = convos.reduce((s, c) => s + c.unread_count, 0);
-
-  // Navbar height is ~64px — fill the rest of the viewport
+  const totalUnread = persons.reduce((s, pt) => s + pt.totalUnread, 0);
   const NAV_H = 64;
 
+  // ─────────────────────────────────────────────────────────────
+  // Render
+  // ─────────────────────────────────────────────────────────────
   return (
     <div style={{ height: `calc(100vh - ${NAV_H}px)`, display: 'flex', overflow: 'hidden' }}>
 
       {/* ── Sidebar ── */}
       <div style={{ width: 300, flexShrink: 0, display: 'flex', flexDirection: 'column', borderRight: `1px solid var(--border)`, background: 'var(--surface-1)', overflow: 'hidden' }}>
 
-        {/* Header */}
         <div style={{ padding: '16px 14px 10px', borderBottom: `1px solid var(--border)`, flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
             <span style={{ fontWeight: 700, fontSize: 16, color: 'var(--ink)' }}>Messages</span>
@@ -190,60 +281,69 @@ export default function MessagesClient({ conversations: initialConvos, currentUs
           </div>
         </div>
 
-        {/* List */}
         <div style={{ flex: 1, overflowY: 'auto', scrollbarWidth: 'none' }}>
-          {filtered.length === 0 ? (
+          {filteredPersons.length === 0 ? (
             <div style={{ padding: '40px 16px', textAlign: 'center', color: 'var(--ink-muted)', fontSize: 13 }}>
-              {search ? 'No results.' : 'No conversations yet.\nStart one from a listing or item page.'}
+              {search ? 'No results.' : 'No conversations yet.'}
             </div>
-          ) : filtered.map(c => (
-            <button
-              key={c.id}
-              onClick={() => setActiveConvoId(c.id)}
-              onContextMenu={e => { e.preventDefault(); setCtxMenu({ convId: c.id, x: e.clientX, y: e.clientY }); }}
-              style={{
-                width: '100%', textAlign: 'left', padding: '11px 14px',
-                display: 'flex', alignItems: 'center', gap: 10,
-                background: activeConvoId === c.id ? EMERALD_LIGHT : 'transparent',
-                border: 'none', borderBottom: `1px solid var(--border)`,
-                borderLeft: `3px solid ${activeConvoId === c.id ? EMERALD : 'transparent'}`,
-                cursor: 'pointer', transition: 'background 0.12s',
-              }}
-            >
-              <div style={{ position: 'relative', flexShrink: 0 }}>
-                <Avatar src={c.other_user.profile_pic} name={c.other_user.name} size={42} />
-                {c.unread_count > 0 && (
-                  <span style={{ position: 'absolute', top: -2, right: -2, width: 15, height: 15, borderRadius: '50%', background: EMERALD, color: '#fff', fontSize: 9, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #fff' }}>
-                    {c.unread_count > 9 ? '9+' : c.unread_count}
-                  </span>
-                )}
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 4 }}>
-                  <span style={{ fontWeight: c.unread_count > 0 ? 700 : 600, fontSize: 13, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 130 }}>
-                    {c.other_user.name}
-                  </span>
-                  {c.last_message && <span style={{ fontSize: 10, color: 'var(--ink-muted)', flexShrink: 0 }}>{fmtTime(c.last_message.created_at)}</span>}
+          ) : filteredPersons.map(pt => {
+            const isActive = activeConvoId !== null && pt.convos.some(c => c.id === activeConvoId);
+            return (
+              <button
+                key={pt.personId}
+                onClick={() => selectPerson(pt)}
+                onContextMenu={e => { e.preventDefault(); setCtxMenu({ convId: pt.latestConvoId, x: e.clientX, y: e.clientY }); }}
+                style={{
+                  width: '100%', textAlign: 'left', padding: '11px 14px',
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  background: isActive ? EMERALD_LIGHT : 'transparent',
+                  border: 'none', borderBottom: `1px solid var(--border)`,
+                  borderLeft: `3px solid ${isActive ? EMERALD : 'transparent'}`,
+                  cursor: 'pointer', transition: 'background 0.12s',
+                }}
+              >
+                <div style={{ position: 'relative', flexShrink: 0 }}>
+                  <Avatar src={pt.otherUser.profile_pic} name={pt.otherUser.name} size={42} />
+                  {pt.totalUnread > 0 && (
+                    <span style={{ position: 'absolute', top: -2, right: -2, width: 15, height: 15, borderRadius: '50%', background: EMERALD, color: '#fff', fontSize: 9, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #fff' }}>
+                      {pt.totalUnread > 9 ? '9+' : pt.totalUnread}
+                    </span>
+                  )}
                 </div>
-                {(c.item_title || c.listing_title) && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, color: EMERALD, marginTop: 1 }}>
-                    {c.item_title ? <ShoppingBag size={9} /> : <Building2 size={9} />}
-                    <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 150 }}>{c.item_title || c.listing_title}</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 4 }}>
+                    <span style={{ fontWeight: pt.totalUnread > 0 ? 700 : 600, fontSize: 13, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 130 }}>
+                      {pt.otherUser.name}
+                    </span>
+                    {pt.latestMessage && <span style={{ fontSize: 10, color: 'var(--ink-muted)', flexShrink: 0 }}>{fmtTime(pt.latestMessage.created_at)}</span>}
                   </div>
-                )}
-                {c.last_message && (
-                  <div style={{ fontSize: 12, color: c.unread_count > 0 ? 'var(--ink)' : 'var(--ink-muted)', marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: c.unread_count > 0 ? 500 : 400 }}>
-                    {c.last_message.sender_id === currentUserId ? 'You: ' : ''}{c.last_message.body}
-                  </div>
-                )}
-              </div>
-            </button>
-          ))}
+                  {/* Show deal context badges */}
+                  {pt.convos.length > 0 && (
+                    <div style={{ display: 'flex', gap: 3, marginTop: 2, flexWrap: 'nowrap', overflow: 'hidden' }}>
+                      {pt.convos.slice(0, 2).map(c => (
+                        <span key={c.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 2, fontSize: 10, color: EMERALD, background: EMERALD_SOFT, borderRadius: 4, padding: '1px 5px', whiteSpace: 'nowrap', maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          <ContextLabel conv={c} />
+                        </span>
+                      ))}
+                      {pt.convos.length > 2 && (
+                        <span style={{ fontSize: 10, color: 'var(--ink-muted)', flexShrink: 0 }}>+{pt.convos.length - 2}</span>
+                      )}
+                    </div>
+                  )}
+                  {pt.latestMessage && (
+                    <div style={{ fontSize: 12, color: pt.totalUnread > 0 ? 'var(--ink)' : 'var(--ink-muted)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: pt.totalUnread > 0 ? 500 : 400 }}>
+                      {pt.latestMessage.sender_id === currentUserId ? 'You: ' : ''}{pt.latestMessage.body}
+                    </div>
+                  )}
+                </div>
+              </button>
+            );
+          })}
         </div>
       </div>
 
       {/* ── Chat panel ── */}
-      {activeConvo ? (
+      {activeConvo && activePerson ? (
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#fff' }}>
 
           {/* Chat header */}
@@ -255,16 +355,66 @@ export default function MessagesClient({ conversations: initialConvos, currentUs
                   ? <Link href={`/profiles/${activeConvo.other_user.profile_slug}`} style={{ color: 'var(--ink)', textDecoration: 'none' }}>{activeConvo.other_user.name}</Link>
                   : activeConvo.other_user.name}
               </div>
-              {(activeConvo.item_title || activeConvo.listing_title) && (
+
+              {/* Deals dropdown — only if this person has multiple conversations */}
+              {activePerson.convos.length > 1 ? (
+                <div style={{ position: 'relative' }} ref={dealsRef}>
+                  <button
+                    onClick={() => setDealsOpen(v => !v)}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, color: EMERALD, background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginTop: 2, fontWeight: 500 }}
+                  >
+                    {activeConvo.item_title ? <ShoppingBag size={11} /> : activeConvo.listing_title ? <Building2 size={11} /> : null}
+                    {activeConvo.item_title || activeConvo.listing_title || 'General'}
+                    <span style={{ fontSize: 10, color: 'var(--ink-muted)', marginLeft: 2 }}>({activePerson.convos.length} deals)</span>
+                    <ChevronDown size={12} style={{ transition: 'transform 0.15s', transform: dealsOpen ? 'rotate(180deg)' : 'none' }} />
+                  </button>
+                  {dealsOpen && (
+                    <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 9999, background: '#fff', border: '1px solid var(--border)', borderRadius: 10, boxShadow: '0 4px 20px rgba(0,0,0,0.12)', padding: '6px 0', minWidth: 220 }}>
+                      <div style={{ padding: '6px 12px 4px', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--ink-muted)' }}>
+                        All deals with {activeConvo.other_user.name}
+                      </div>
+                      {activePerson.convos.map(c => (
+                        <button
+                          key={c.id}
+                          onClick={() => { setActiveConvoId(c.id); setDealsOpen(false); }}
+                          style={{
+                            width: '100%', textAlign: 'left', padding: '9px 12px',
+                            background: c.id === activeConvoId ? EMERALD_SOFT : 'none',
+                            border: 'none', cursor: 'pointer', fontSize: 13,
+                            display: 'flex', alignItems: 'center', gap: 8,
+                            color: c.id === activeConvoId ? EMERALD : 'var(--ink)',
+                            fontWeight: c.id === activeConvoId ? 600 : 400,
+                          }}
+                        >
+                          <span style={{ color: EMERALD, flexShrink: 0 }}>
+                            {c.item_id ? <ShoppingBag size={13} /> : c.listing_id ? <Building2 size={13} /> : <MessageCircle size={13} />}
+                          </span>
+                          <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {c.item_title || c.listing_title || 'General chat'}
+                          </span>
+                          {c.unread_count > 0 && (
+                            <span style={{ background: EMERALD, color: '#fff', borderRadius: 8, padding: '1px 5px', fontSize: 10, fontWeight: 700 }}>{c.unread_count}</span>
+                          )}
+                          {c.item_id
+                            ? <Link href={`/exchange/${c.item_id}`} onClick={e => e.stopPropagation()} style={{ fontSize: 10, color: EMERALD, textDecoration: 'underline', flexShrink: 0 }}>View</Link>
+                            : c.listing_id
+                            ? <Link href={`/listings/${c.listing_id}`} onClick={e => e.stopPropagation()} style={{ fontSize: 10, color: EMERALD, textDecoration: 'underline', flexShrink: 0 }}>View</Link>
+                            : null}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (activeConvo.item_title || activeConvo.listing_title) ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: EMERALD, marginTop: 1 }}>
-                  {activeConvo.item_title ? <ShoppingBag size={11} /> : <Building2 size={11} />}
+                  {activeConvo.item_id ? <ShoppingBag size={11} /> : <Building2 size={11} />}
                   {activeConvo.item_id
                     ? <Link href={`/exchange/${activeConvo.item_id}`} style={{ color: EMERALD, textDecoration: 'none', fontWeight: 500 }}>{activeConvo.item_title}</Link>
                     : activeConvo.listing_id
                     ? <Link href={`/listings/${activeConvo.listing_id}`} style={{ color: EMERALD, textDecoration: 'none', fontWeight: 500 }}>{activeConvo.listing_title}</Link>
                     : null}
                 </div>
-              )}
+              ) : null}
             </div>
           </div>
 
@@ -278,7 +428,6 @@ export default function MessagesClient({ conversations: initialConvos, currentUs
                 <p style={{ margin: 0, fontSize: 14 }}>No messages yet — say hello!</p>
               </div>
             ) : (() => {
-              // Group by day
               const groups: { date: string; messages: Message[] }[] = [];
               messages.forEach(msg => {
                 const day = new Date(msg.created_at).toDateString();
@@ -293,12 +442,11 @@ export default function MessagesClient({ conversations: initialConvos, currentUs
                   if (d.toDateString() === now.toDateString()) return 'Today';
                   const y = new Date(now); y.setDate(now.getDate() - 1);
                   if (d.toDateString() === y.toDateString()) return 'Yesterday';
-                  return d.toLocaleDateString([], { month: 'long', day: 'numeric' });
+                  return `${FULL_MONTHS[d.getMonth()]} ${d.getDate()}`;
                 })();
 
                 return (
                   <div key={group.date}>
-                    {/* Day divider */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '14px 0 10px' }}>
                       <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
                       <span style={{ fontSize: 11, color: 'var(--ink-muted)', fontWeight: 500 }}>{dayLabel}</span>
@@ -311,7 +459,6 @@ export default function MessagesClient({ conversations: initialConvos, currentUs
                         const prevSame = i > 0 && group.messages[i - 1].sender_id === msg.sender_id;
                         const nextSame = i < group.messages.length - 1 && group.messages[i + 1].sender_id === msg.sender_id;
 
-                        // Bubble border-radius: round all corners except the "tail" corner
                         const r = '16px';
                         const tl = isMine ? r : (prevSame ? '4px' : r);
                         const tr = isMine ? (prevSame ? '4px' : r) : r;
@@ -323,8 +470,7 @@ export default function MessagesClient({ conversations: initialConvos, currentUs
                             <div
                               title={fmtFull(msg.created_at)}
                               style={{
-                                maxWidth: '66%',
-                                padding: '9px 13px',
+                                maxWidth: '66%', padding: '9px 13px',
                                 borderRadius: `${tl} ${tr} ${br} ${bl}`,
                                 background: isMine ? EMERALD : EMERALD_SOFT,
                                 color: isMine ? '#ffffff' : 'var(--ink)',
@@ -337,11 +483,7 @@ export default function MessagesClient({ conversations: initialConvos, currentUs
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 3, marginTop: 3, fontSize: 10 }}>
                                   <span style={{ opacity: isMine ? 0.75 : 0.55 }}>{fmtTime(msg.created_at)}</span>
                                   {isMine && (
-                                    <CheckCheck
-                                      size={10}
-                                      aria-label={msg.is_read ? 'Read' : 'Sent'}
-                                      style={{ color: msg.is_read ? '#ffffff' : 'rgba(255,255,255,0.45)' }}
-                                    />
+                                    <CheckCheck size={10} aria-label={msg.is_read ? 'Read' : 'Sent'} style={{ color: msg.is_read ? '#ffffff' : 'rgba(255,255,255,0.45)' }} />
                                   )}
                                 </div>
                               )}
@@ -357,9 +499,9 @@ export default function MessagesClient({ conversations: initialConvos, currentUs
             <div ref={bottomRef} />
           </div>
 
-          {/* Input bar */}
+          {/* Input */}
           <div style={{ padding: '10px 16px 14px', borderTop: `1px solid var(--border)`, background: '#fff', flexShrink: 0 }}>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center', background: 'var(--surface-1)', borderRadius: 24, padding: '5px 5px 5px 16px', border: `1.5px solid var(--border)`, transition: 'border-color 0.2s' }}>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', background: 'var(--surface-1)', borderRadius: 24, padding: '5px 5px 5px 16px', border: `1.5px solid var(--border)` }}>
               <input
                 ref={inputRef}
                 value={input}
@@ -388,7 +530,6 @@ export default function MessagesClient({ conversations: initialConvos, currentUs
           </div>
         </div>
       ) : (
-        /* Empty state */
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, color: 'var(--ink-muted)', background: 'var(--surface-1)' }}>
           <div style={{ width: 64, height: 64, borderRadius: '50%', background: EMERALD_SOFT, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <MessageCircle size={28} color={EMERALD} />

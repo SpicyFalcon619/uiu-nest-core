@@ -12,11 +12,13 @@ import CreateSeekingModal from '@/components/modals/CreateSeekingModal';
 export default function SeekingContent({
   posts,
   zones,
-  isLoggedIn
+  isLoggedIn,
+  isAdmin,
 }: {
   posts: SeekingPost[];
   zones: Zone[];
   isLoggedIn: boolean;
+  isAdmin?: boolean;
 }) {
   const [filterType, setFilterType] = useState('all');
   const [filterZone, setFilterZone] = useState('all');
@@ -48,9 +50,9 @@ export default function SeekingContent({
           <p style={{ margin: 0, color: 'var(--gray)' }}>Find students looking for rooms or flatmates near UIU.</p>
         </div>
         <div>
-          {isLoggedIn ? (
+          {isLoggedIn && !isAdmin ? (
             <button className="btn btn-gold" onClick={() => setCreateModalOpen(true)}>+ Post Ad</button>
-          ) : (
+          ) : isLoggedIn && isAdmin ? null : (
             <button className="btn btn-gold" onClick={() => window.location.href = '/login'}>Log in to Post</button>
           )}
         </div>
