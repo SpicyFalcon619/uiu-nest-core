@@ -35,6 +35,26 @@ interface MessagesClientProps {
   initialConvoId: string | null;
 }
 
+// ── tiny helpers ────────────────────────────────────────────────
+const EMERALD       = '#1A5C45';
+const EMERALD_SOFT  = '#E8F5EE';
+const EMERALD_LIGHT = '#EEF7F2';
+
+function Avatar({ src, name, size = 40 }: { src?: string; name: string; size?: number }) {
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: '50%', flexShrink: 0, overflow: 'hidden',
+      background: EMERALD, color: '#fff',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontWeight: 700, fontSize: size * 0.35,
+    }}>
+      {src
+        ? <img src={src} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        : avatarInitials(name)}
+    </div>
+  );
+}
+
 export default function MessagesClient({ conversations: initialConvos, currentUserId, initialConvoId }: MessagesClientProps) {
   const [convos, setConvos]               = useState<Conversation[]>(initialConvos);
   const [activeConvoId, setActiveConvoId] = useState<string | null>(initialConvoId);
@@ -43,47 +63,37 @@ export default function MessagesClient({ conversations: initialConvos, currentUs
   const [sending, setSending]             = useState(false);
   const [loadingMsgs, setLoadingMsgs]     = useState(false);
   const [search, setSearch]               = useState('');
-  const bottomRef   = useRef<HTMLDivElement>(null);
-  const inputRef    = useRef<HTMLInputElement>(null);
-  const supabase    = createClient();
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const inputRef  = useRef<HTMLInputElement>(null);
+  const supabase  = createClient();
 
   const activeConvo = convos.find(c => c.id === activeConvoId);
 
-  // Load messages when conversation changes
+  // Load messages
   useEffect(() => {
     if (!activeConvoId) return;
     setLoadingMsgs(true);
     setMessages([]);
-
     supabase
       .from('messages')
       .select('*')
       .eq('conversation_id', activeConvoId)
       .order('created_at', { ascending: true })
-      .then(({ data, error }) => {
-        if (!error) setMessages((data as Message[]) || []);
-        setLoadingMsgs(false);
-      });
-
+      .then(({ data }) => { setMessages((data as Message[]) || []); setLoadingMsgs(false); });
     markConversationRead(activeConvoId);
     setConvos(prev => prev.map(c => c.id === activeConvoId ? { ...c, unread_count: 0 } : c));
     setTimeout(() => inputRef.current?.focus(), 100);
   }, [activeConvoId]);
 
   // Scroll to bottom
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
-  // Realtime subscription
+  // Realtime
   useEffect(() => {
     if (!activeConvoId) return;
     const channel = supabase
       .channel(`msgs-${activeConvoId}`)
-      .on('postgres_changes', {
-        event: 'INSERT', schema: 'public', table: 'messages',
-        filter: `conversation_id=eq.${activeConvoId}`,
-      }, (payload) => {
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${activeConvoId}` }, (payload) => {
         const msg = payload.new as Message;
         setMessages(prev => prev.some(m => m.id === msg.id) ? prev : [...prev, msg]);
         if (msg.sender_id !== currentUserId) markConversationRead(activeConvoId);
@@ -92,23 +102,13 @@ export default function MessagesClient({ conversations: initialConvos, currentUs
     return () => { supabase.removeChannel(channel); };
   }, [activeConvoId]);
 
-  const handleSend = useCallback(async (e?: React.FormEvent) => {
-    e?.preventDefault();
+  const handleSend = useCallback(async () => {
     const text = input.trim();
     if (!text || !activeConvoId || sending) return;
     setSending(true);
     setInput('');
-
-    const optimistic: Message = {
-      id: `opt-${Date.now()}`,
-      conversation_id: activeConvoId,
-      sender_id: currentUserId,
-      body: text,
-      is_read: false,
-      created_at: new Date().toISOString(),
-    };
+    const optimistic: Message = { id: `opt-${Date.now()}`, conversation_id: activeConvoId, sender_id: currentUserId, body: text, is_read: false, created_at: new Date().toISOString() };
     setMessages(prev => [...prev, optimistic]);
-
     const res = await sendMessage(activeConvoId, text);
     setSending(false);
     if (res.error) {
@@ -119,295 +119,255 @@ export default function MessagesClient({ conversations: initialConvos, currentUs
       setMessages(prev => prev.map(m => m.id === optimistic.id ? res.message as Message : m));
       setConvos(prev => prev.map(c => c.id === activeConvoId
         ? { ...c, last_message: { body: text, created_at: new Date().toISOString(), sender_id: currentUserId } }
-        : c
-      ));
+        : c));
     }
   }, [input, activeConvoId, sending, currentUserId]);
 
   const fmtTime = (iso: string) => {
-    const d = new Date(iso);
-    const now = new Date();
-    if (d.toDateString() === now.toDateString())
-      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
-    if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
+    const d = new Date(iso), now = new Date();
+    if (d.toDateString() === now.toDateString()) return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const y = new Date(now); y.setDate(now.getDate() - 1);
+    if (d.toDateString() === y.toDateString()) return 'Yesterday';
     return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
   };
+  const fmtFull = (iso: string) => new Date(iso).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
-  const fmtFullTime = (iso: string) =>
-    new Date(iso).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-
-  const filteredConvos = search.trim()
-    ? convos.filter(c =>
-        c.other_user.name.toLowerCase().includes(search.toLowerCase()) ||
-        (c.listing_title || '').toLowerCase().includes(search.toLowerCase()) ||
-        (c.item_title || '').toLowerCase().includes(search.toLowerCase())
-      )
+  const filtered = search.trim()
+    ? convos.filter(c => c.other_user.name.toLowerCase().includes(search.toLowerCase()) || (c.listing_title || '').toLowerCase().includes(search.toLowerCase()) || (c.item_title || '').toLowerCase().includes(search.toLowerCase()))
     : convos;
 
   const totalUnread = convos.reduce((s, c) => s + c.unread_count, 0);
 
+  // Navbar height is ~64px — fill the rest of the viewport
+  const NAV_H = 64;
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 64px)', overflow: 'hidden' }}>
-      <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr', flex: 1, overflow: 'hidden' }}>
+    <div style={{ height: `calc(100vh - ${NAV_H}px)`, display: 'flex', overflow: 'hidden' }}>
 
-        {/* ── Sidebar ── */}
-        <div style={{ display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--border)', background: 'var(--surface-1)', overflow: 'hidden' }}>
+      {/* ── Sidebar ── */}
+      <div style={{ width: 300, flexShrink: 0, display: 'flex', flexDirection: 'column', borderRight: `1px solid var(--border)`, background: 'var(--surface-1)', overflow: 'hidden' }}>
 
-          {/* Sidebar header */}
-          <div style={{ padding: '20px 16px 12px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-              <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <MessageCircle size={20} style={{ color: 'var(--primary)' }} />
-                Messages
-                {totalUnread > 0 && (
-                  <span style={{ background: 'var(--primary)', color: '#fff', borderRadius: '10px', padding: '1px 7px', fontSize: '11px', fontWeight: 700 }}>
-                    {totalUnread}
-                  </span>
-                )}
-              </h2>
-            </div>
-            {/* Search */}
-            <div style={{ position: 'relative' }}>
-              <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--ink-muted)' }} />
-              <input
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder="Search conversations…"
-                style={{ width: '100%', padding: '7px 10px 7px 30px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '13px', background: '#fff', boxSizing: 'border-box' }}
-              />
-            </div>
+        {/* Header */}
+        <div style={{ padding: '16px 14px 10px', borderBottom: `1px solid var(--border)`, flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+            <span style={{ fontWeight: 700, fontSize: 16, color: 'var(--ink)' }}>Messages</span>
+            {totalUnread > 0 && (
+              <span style={{ background: EMERALD, color: '#fff', borderRadius: 10, padding: '1px 7px', fontSize: 11, fontWeight: 700 }}>{totalUnread}</span>
+            )}
           </div>
-
-          {/* Conversation list */}
-          <div style={{ flex: 1, overflowY: 'auto', scrollbarWidth: 'none' }}>
-            {filteredConvos.length === 0 ? (
-              <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--ink-muted)', fontSize: '14px' }}>
-                {search ? 'No results.' : (
-                  <>No conversations yet.<br /><span style={{ fontSize: '12px' }}>Start one from a listing or item page.</span></>
-                )}
-              </div>
-            ) : filteredConvos.map(c => (
-              <button
-                key={c.id}
-                onClick={() => setActiveConvoId(c.id)}
-                style={{
-                  width: '100%', textAlign: 'left', padding: '12px 16px',
-                  display: 'flex', alignItems: 'center', gap: '12px',
-                  background: activeConvoId === c.id ? 'var(--primary-light, #EEF7F2)' : 'transparent',
-                  border: 'none', borderBottom: '1px solid var(--border)',
-                  borderLeft: `3px solid ${activeConvoId === c.id ? 'var(--primary)' : 'transparent'}`,
-                  cursor: 'pointer', transition: 'background 0.12s',
-                }}
-              >
-                {/* Avatar */}
-                <div style={{ position: 'relative', flexShrink: 0 }}>
-                  <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'var(--primary)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 14, overflow: 'hidden' }}>
-                    {c.other_user.profile_pic
-                      ? <img src={c.other_user.profile_pic} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      : avatarInitials(c.other_user.name)}
-                  </div>
-                  {c.unread_count > 0 && (
-                    <span style={{ position: 'absolute', top: -2, right: -2, width: 16, height: 16, borderRadius: '50%', background: 'var(--primary)', color: '#fff', fontSize: '9px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid var(--surface-1)' }}>
-                      {c.unread_count > 9 ? '9+' : c.unread_count}
-                    </span>
-                  )}
-                </div>
-
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 4 }}>
-                    <span style={{ fontWeight: c.unread_count > 0 ? 700 : 600, fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {c.other_user.name}
-                    </span>
-                    {c.last_message && (
-                      <span style={{ fontSize: '11px', color: 'var(--ink-muted)', flexShrink: 0 }}>{fmtTime(c.last_message.created_at)}</span>
-                    )}
-                  </div>
-
-                  {/* Context label */}
-                  {(c.item_title || c.listing_title) && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: 'var(--primary)', marginTop: 1 }}>
-                      {c.item_title ? <ShoppingBag size={10} /> : <Building2 size={10} />}
-                      <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {c.item_title || c.listing_title}
-                      </span>
-                    </div>
-                  )}
-
-                  {c.last_message && (
-                    <div style={{ fontSize: '12px', color: c.unread_count > 0 ? 'var(--ink)' : 'var(--ink-muted)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: c.unread_count > 0 ? 500 : 400 }}>
-                      {c.last_message.sender_id === currentUserId ? 'You: ' : ''}{c.last_message.body}
-                    </div>
-                  )}
-                </div>
-              </button>
-            ))}
+          <div style={{ position: 'relative' }}>
+            <Search size={13} style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: 'var(--ink-muted)', pointerEvents: 'none' }} />
+            <input
+              value={search} onChange={e => setSearch(e.target.value)}
+              placeholder="Search…"
+              style={{ width: '100%', padding: '7px 10px 7px 28px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, background: '#fff', boxSizing: 'border-box', color: 'var(--ink)', outline: 'none' }}
+            />
           </div>
         </div>
 
-        {/* ── Chat window ── */}
-        {activeConvo ? (
-          <div style={{ display: 'flex', flexDirection: 'column', background: '#fff', overflow: 'hidden' }}>
-
-            {/* Chat header */}
-            <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '14px', flexShrink: 0, background: '#fff' }}>
-              <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--primary)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 14, overflow: 'hidden', flexShrink: 0 }}>
-                {activeConvo.other_user.profile_pic
-                  ? <img src={activeConvo.other_user.profile_pic} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  : avatarInitials(activeConvo.other_user.name)}
+        {/* List */}
+        <div style={{ flex: 1, overflowY: 'auto', scrollbarWidth: 'none' }}>
+          {filtered.length === 0 ? (
+            <div style={{ padding: '40px 16px', textAlign: 'center', color: 'var(--ink-muted)', fontSize: 13 }}>
+              {search ? 'No results.' : 'No conversations yet.\nStart one from a listing or item page.'}
+            </div>
+          ) : filtered.map(c => (
+            <button
+              key={c.id}
+              onClick={() => setActiveConvoId(c.id)}
+              style={{
+                width: '100%', textAlign: 'left', padding: '11px 14px',
+                display: 'flex', alignItems: 'center', gap: 10,
+                background: activeConvoId === c.id ? EMERALD_LIGHT : 'transparent',
+                border: 'none', borderBottom: `1px solid var(--border)`,
+                borderLeft: `3px solid ${activeConvoId === c.id ? EMERALD : 'transparent'}`,
+                cursor: 'pointer', transition: 'background 0.12s',
+              }}
+            >
+              <div style={{ position: 'relative', flexShrink: 0 }}>
+                <Avatar src={c.other_user.profile_pic} name={c.other_user.name} size={42} />
+                {c.unread_count > 0 && (
+                  <span style={{ position: 'absolute', top: -2, right: -2, width: 15, height: 15, borderRadius: '50%', background: EMERALD, color: '#fff', fontSize: 9, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #fff' }}>
+                    {c.unread_count > 9 ? '9+' : c.unread_count}
+                  </span>
+                )}
               </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 700, fontSize: '15px' }}>
-                  {activeConvo.other_user.profile_slug
-                    ? <Link href={`/profiles/${activeConvo.other_user.profile_slug}`} style={{ color: 'inherit', textDecoration: 'none' }}>{activeConvo.other_user.name}</Link>
-                    : activeConvo.other_user.name}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 4 }}>
+                  <span style={{ fontWeight: c.unread_count > 0 ? 700 : 600, fontSize: 13, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 130 }}>
+                    {c.other_user.name}
+                  </span>
+                  {c.last_message && <span style={{ fontSize: 10, color: 'var(--ink-muted)', flexShrink: 0 }}>{fmtTime(c.last_message.created_at)}</span>}
                 </div>
-                {/* Context link — clickable */}
-                {(activeConvo.item_title || activeConvo.listing_title) && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: 'var(--primary)', marginTop: 1 }}>
-                    {activeConvo.item_title ? <ShoppingBag size={12} /> : <Building2 size={12} />}
-                    {activeConvo.item_id ? (
-                      <Link href={`/exchange/${activeConvo.item_id}`} style={{ color: 'var(--primary)', textDecoration: 'none', fontWeight: 500 }}>
-                        {activeConvo.item_title}
-                      </Link>
-                    ) : activeConvo.listing_id ? (
-                      <Link href={`/listings/${activeConvo.listing_id}`} style={{ color: 'var(--primary)', textDecoration: 'none', fontWeight: 500 }}>
-                        {activeConvo.listing_title}
-                      </Link>
-                    ) : null}
+                {(c.item_title || c.listing_title) && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, color: EMERALD, marginTop: 1 }}>
+                    {c.item_title ? <ShoppingBag size={9} /> : <Building2 size={9} />}
+                    <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 150 }}>{c.item_title || c.listing_title}</span>
+                  </div>
+                )}
+                {c.last_message && (
+                  <div style={{ fontSize: 12, color: c.unread_count > 0 ? 'var(--ink)' : 'var(--ink-muted)', marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: c.unread_count > 0 ? 500 : 400 }}>
+                    {c.last_message.sender_id === currentUserId ? 'You: ' : ''}{c.last_message.body}
                   </div>
                 )}
               </div>
-            </div>
-
-            {/* Messages area */}
-            <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '4px', scrollbarWidth: 'thin' }}>
-              {loadingMsgs ? (
-                <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--ink-muted)' }}>Loading…</div>
-              ) : messages.length === 0 ? (
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', color: 'var(--ink-muted)' }}>
-                  <MessageCircle size={40} opacity={0.2} />
-                  <p style={{ margin: 0, fontSize: '14px' }}>No messages yet. Say hello!</p>
-                </div>
-              ) : (
-                (() => {
-                  // Group messages by day
-                  const groups: { date: string; messages: Message[] }[] = [];
-                  messages.forEach(msg => {
-                    const day = new Date(msg.created_at).toDateString();
-                    const last = groups[groups.length - 1];
-                    if (last && last.date === day) last.messages.push(msg);
-                    else groups.push({ date: day, messages: [msg] });
-                  });
-
-                  return groups.map(group => {
-                    const dayLabel = (() => {
-                      const d = new Date(group.date);
-                      const now = new Date();
-                      if (d.toDateString() === now.toDateString()) return 'Today';
-                      const y = new Date(now); y.setDate(now.getDate() - 1);
-                      if (d.toDateString() === y.toDateString()) return 'Yesterday';
-                      return d.toLocaleDateString([], { month: 'long', day: 'numeric' });
-                    })();
-
-                    return (
-                      <div key={group.date}>
-                        {/* Day divider */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: '16px 0 12px' }}>
-                          <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
-                          <span style={{ fontSize: '11px', color: 'var(--ink-muted)', fontWeight: 500, whiteSpace: 'nowrap' }}>{dayLabel}</span>
-                          <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
-                        </div>
-
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                          {group.messages.map((msg, i) => {
-                            const isMine = msg.sender_id === currentUserId;
-                            const isLast = i === group.messages.length - 1 || group.messages[i + 1]?.sender_id !== msg.sender_id;
-                            const isFirst = i === 0 || group.messages[i - 1]?.sender_id !== msg.sender_id;
-
-                            return (
-                              <div key={msg.id} style={{ display: 'flex', justifyContent: isMine ? 'flex-end' : 'flex-start', marginBottom: isLast ? '6px' : '1px' }}>
-                                <div
-                                  title={fmtFullTime(msg.created_at)}
-                                  style={{
-                                    maxWidth: '65%',
-                                    padding: '9px 13px',
-                                    borderRadius: isMine
-                                      ? `${isFirst ? 16 : 4}px 16px 4px 16px`
-                                      : `16px ${isFirst ? 16 : 4}px 16px 4px`,
-                                    background: isMine ? 'var(--primary)' : 'var(--surface-1)',
-                                    color: isMine ? '#fff' : 'var(--ink)',
-                                    fontSize: '14px',
-                                    lineHeight: 1.5,
-                                    wordBreak: 'break-word',
-                                    boxShadow: '0 1px 2px rgba(0,0,0,0.06)',
-                                  }}
-                                >
-                                  {msg.body}
-                                  {isLast && (
-                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '3px', marginTop: '3px', opacity: 0.65, fontSize: '10px' }}>
-                                      {fmtTime(msg.created_at)}
-                                      {isMine && <CheckCheck size={10} />}
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  });
-                })()
-              )}
-              <div ref={bottomRef} />
-            </div>
-
-            {/* Input */}
-            <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border)', background: '#fff', flexShrink: 0 }}>
-              <form
-                onSubmit={handleSend}
-                style={{ display: 'flex', gap: '10px', alignItems: 'center', background: 'var(--surface-1)', borderRadius: '24px', padding: '6px 6px 6px 16px', border: '1px solid var(--border)' }}
-              >
-                <input
-                  ref={inputRef}
-                  value={input}
-                  onChange={e => setInput(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-                  placeholder="Type a message…"
-                  style={{ flex: 1, background: 'none', border: 'none', outline: 'none', fontSize: '14px', color: 'var(--ink)' }}
-                  disabled={sending}
-                  autoComplete="off"
-                />
-                <button
-                  type="submit"
-                  disabled={sending || !input.trim()}
-                  style={{
-                    width: 36, height: 36, borderRadius: '50%',
-                    background: input.trim() ? 'var(--primary)' : 'var(--border)',
-                    color: input.trim() ? '#fff' : 'var(--ink-muted)',
-                    border: 'none', cursor: input.trim() ? 'pointer' : 'default',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    transition: 'background 0.2s, color 0.2s', flexShrink: 0,
-                  }}
-                >
-                  <Send size={15} />
-                </button>
-              </form>
-            </div>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '14px', color: 'var(--ink-muted)', background: 'var(--surface-1)' }}>
-            <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <MessageCircle size={32} opacity={0.4} />
-            </div>
-            <div style={{ textAlign: 'center' }}>
-              <p style={{ margin: '0 0 6px', fontWeight: 600, color: 'var(--ink)' }}>Your Messages</p>
-              <p style={{ margin: 0, fontSize: '13px' }}>Select a conversation or start one from a listing.</p>
-            </div>
-          </div>
-        )}
+            </button>
+          ))}
+        </div>
       </div>
+
+      {/* ── Chat panel ── */}
+      {activeConvo ? (
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#fff' }}>
+
+          {/* Chat header */}
+          <div style={{ padding: '12px 20px', borderBottom: `1px solid var(--border)`, display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0, background: '#fff' }}>
+            <Avatar src={activeConvo.other_user.profile_pic} name={activeConvo.other_user.name} size={38} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--ink)' }}>
+                {activeConvo.other_user.profile_slug
+                  ? <Link href={`/profiles/${activeConvo.other_user.profile_slug}`} style={{ color: 'var(--ink)', textDecoration: 'none' }}>{activeConvo.other_user.name}</Link>
+                  : activeConvo.other_user.name}
+              </div>
+              {(activeConvo.item_title || activeConvo.listing_title) && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: EMERALD, marginTop: 1 }}>
+                  {activeConvo.item_title ? <ShoppingBag size={11} /> : <Building2 size={11} />}
+                  {activeConvo.item_id
+                    ? <Link href={`/exchange/${activeConvo.item_id}`} style={{ color: EMERALD, textDecoration: 'none', fontWeight: 500 }}>{activeConvo.item_title}</Link>
+                    : activeConvo.listing_id
+                    ? <Link href={`/listings/${activeConvo.listing_id}`} style={{ color: EMERALD, textDecoration: 'none', fontWeight: 500 }}>{activeConvo.listing_title}</Link>
+                    : null}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Messages */}
+          <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 2, scrollbarWidth: 'thin' }}>
+            {loadingMsgs ? (
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--ink-muted)' }}>Loading…</div>
+            ) : messages.length === 0 ? (
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, color: 'var(--ink-muted)' }}>
+                <MessageCircle size={40} style={{ opacity: 0.2 }} />
+                <p style={{ margin: 0, fontSize: 14 }}>No messages yet — say hello!</p>
+              </div>
+            ) : (() => {
+              // Group by day
+              const groups: { date: string; messages: Message[] }[] = [];
+              messages.forEach(msg => {
+                const day = new Date(msg.created_at).toDateString();
+                const last = groups[groups.length - 1];
+                if (last?.date === day) last.messages.push(msg);
+                else groups.push({ date: day, messages: [msg] });
+              });
+
+              return groups.map(group => {
+                const dayLabel = (() => {
+                  const d = new Date(group.date), now = new Date();
+                  if (d.toDateString() === now.toDateString()) return 'Today';
+                  const y = new Date(now); y.setDate(now.getDate() - 1);
+                  if (d.toDateString() === y.toDateString()) return 'Yesterday';
+                  return d.toLocaleDateString([], { month: 'long', day: 'numeric' });
+                })();
+
+                return (
+                  <div key={group.date}>
+                    {/* Day divider */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '14px 0 10px' }}>
+                      <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+                      <span style={{ fontSize: 11, color: 'var(--ink-muted)', fontWeight: 500 }}>{dayLabel}</span>
+                      <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      {group.messages.map((msg, i) => {
+                        const isMine = msg.sender_id === currentUserId;
+                        const prevSame = i > 0 && group.messages[i - 1].sender_id === msg.sender_id;
+                        const nextSame = i < group.messages.length - 1 && group.messages[i + 1].sender_id === msg.sender_id;
+
+                        // Bubble border-radius: round all corners except the "tail" corner
+                        const r = '16px';
+                        const tl = isMine ? r : (prevSame ? '4px' : r);
+                        const tr = isMine ? (prevSame ? '4px' : r) : r;
+                        const br = isMine ? (nextSame ? '4px' : r) : r;
+                        const bl = isMine ? r : (nextSame ? '4px' : r);
+
+                        return (
+                          <div key={msg.id} style={{ display: 'flex', justifyContent: isMine ? 'flex-end' : 'flex-start', marginBottom: nextSame ? 0 : 6 }}>
+                            <div
+                              title={fmtFull(msg.created_at)}
+                              style={{
+                                maxWidth: '66%',
+                                padding: '9px 13px',
+                                borderRadius: `${tl} ${tr} ${br} ${bl}`,
+                                // Mine: solid emerald. Theirs: soft emerald tint
+                                background: isMine ? EMERALD : EMERALD_SOFT,
+                                color: isMine ? '#ffffff' : 'var(--ink)',
+                                fontSize: 14, lineHeight: 1.5, wordBreak: 'break-word',
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.06)',
+                              }}
+                            >
+                              {msg.body}
+                              {!nextSame && (
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 3, marginTop: 3, opacity: isMine ? 0.75 : 0.55, fontSize: 10 }}>
+                                  {fmtTime(msg.created_at)}
+                                  {isMine && <CheckCheck size={10} />}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              });
+            })()}
+            <div ref={bottomRef} />
+          </div>
+
+          {/* Input bar */}
+          <div style={{ padding: '10px 16px 14px', borderTop: `1px solid var(--border)`, background: '#fff', flexShrink: 0 }}>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', background: 'var(--surface-1)', borderRadius: 24, padding: '5px 5px 5px 16px', border: `1.5px solid var(--border)`, transition: 'border-color 0.2s' }}>
+              <input
+                ref={inputRef}
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+                placeholder="Type a message… (Enter to send)"
+                style={{ flex: 1, background: 'none', border: 'none', outline: 'none', fontSize: 14, color: 'var(--ink)', fontFamily: 'inherit' }}
+                disabled={sending}
+                autoComplete="off"
+              />
+              <button
+                onClick={handleSend}
+                disabled={sending || !input.trim()}
+                style={{
+                  width: 34, height: 34, borderRadius: '50%', flexShrink: 0,
+                  background: input.trim() ? EMERALD : 'var(--border)',
+                  color: input.trim() ? '#fff' : 'var(--ink-muted)',
+                  border: 'none', cursor: input.trim() ? 'pointer' : 'default',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  transition: 'background 0.2s, color 0.2s',
+                }}
+              >
+                <Send size={14} />
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* Empty state */
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, color: 'var(--ink-muted)', background: 'var(--surface-1)' }}>
+          <div style={{ width: 64, height: 64, borderRadius: '50%', background: EMERALD_SOFT, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <MessageCircle size={28} color={EMERALD} />
+          </div>
+          <div style={{ textAlign: 'center' }}>
+            <p style={{ margin: '0 0 4px', fontWeight: 600, color: 'var(--ink)', fontSize: 15 }}>Your Messages</p>
+            <p style={{ margin: 0, fontSize: 13 }}>Select a conversation to start chatting.</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

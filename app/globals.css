@@ -886,6 +886,8 @@ input[type="checkbox"] { width: auto; margin: 0; accent-color: var(--emerald); w
 .table-responsive { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .table-responsive .table { width: 100%; white-space: nowrap; }
 
+/* Dropdowns use fixed positioning (set via JS) to escape overflow:auto parents */
+
 .cost-table .total-row { background: var(--emerald-soft); }
 .cost-table .total-row td { font-size: 18px; font-weight: 800; border-bottom: none; color: var(--emerald); }
 

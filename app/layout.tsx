@@ -8,6 +8,7 @@ import { Toaster } from 'sonner';
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isHomePage = pathname === '/';
+  const isMessagesPage = pathname.startsWith('/messages');
 
   return (
     <html lang="en" suppressHydrationWarning>
@@ -35,7 +36,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Toaster position="bottom-right" richColors />
         <Navbar />
         <main style={{ flex: 1 }}>{children}</main>
-        <Footer />
+        {!isMessagesPage && <Footer />}
       </body>
     </html>
   );
