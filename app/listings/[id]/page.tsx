@@ -10,6 +10,7 @@ import CommentSection from '@/components/comments/CommentSection';
 import UserRating from '@/components/ratings/UserRating';
 import Link from 'next/link';
 import StatusChanger from '@/components/StatusChanger';
+import MessageButton from '@/components/MessageButton';
 
 export const metadata = {
   title: 'Listing Details - UIUNest',
@@ -316,11 +317,20 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
                     {isAdmin ? 'Admins cannot apply for listings.' : 'This is your own listing.'}
                   </div>
                 ) : (
-                  <ApplicationForm
-                    listingId={parseInt(id)}
-                    ownerId={listing.user_id}
-                    listingTitle={listing.title}
-                  />
+                  <>
+                    <ApplicationForm
+                      listingId={parseInt(id)}
+                      ownerId={listing.user_id}
+                      listingTitle={listing.title}
+                    />
+                    <div style={{ marginTop: '10px' }}>
+                      <MessageButton
+                        otherUserId={listing.user_id}
+                        listingId={parseInt(id)}
+                        label="Message Landlord"
+                      />
+                    </div>
+                  </>
                 )
               ) : (
                 <div style={{ padding: '14px', background: 'var(--surface-1)', borderRadius: '8px', textAlign: 'center', color: 'var(--ink-muted)', fontSize: '14px' }}>

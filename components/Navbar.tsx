@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import type { Profile } from '@/types';
-import { Home, Building2, ShoppingBag, Search, UserCircle, LayoutDashboard, User, Heart, Receipt, Bell, LogOut, Menu } from 'lucide-react';
+import { Home, Building2, ShoppingBag, Search, UserCircle, LayoutDashboard, User, Heart, Receipt, LogOut, Menu, MessageCircle } from 'lucide-react';
 import NotificationBell from './NotificationBell';
 
 export default function Navbar() {
@@ -175,6 +175,7 @@ export default function Navbar() {
                 <Link href="/profile" className="mas-item" onClick={() => setAccountOpen(false)}><User size={16} /> Profile</Link>
                 {user.role !== 'admin' && (
                   <>
+                    <Link href="/messages" className="mas-item" onClick={() => setAccountOpen(false)}><MessageCircle size={16} /> Messages</Link>
                     <Link href="/dashboard?tab=watch" className="mas-item" onClick={() => setAccountOpen(false)}><Heart size={16} /> Watchlist</Link>
                     <Link href="/bills" className="mas-item" onClick={() => setAccountOpen(false)}><Receipt size={16} /> Bills</Link>
                   </>
@@ -193,9 +194,14 @@ export default function Navbar() {
                       <NotificationBell />
                     </div>
                     {user.role !== 'admin' && (
-                      <Link className="icon-btn" href="/dashboard?tab=watch" title="Watchlist">
-                        <Heart size={20} />
-                      </Link>
+                      <>
+                        <Link className="icon-btn" href="/messages" title="Messages">
+                          <MessageCircle size={20} />
+                        </Link>
+                        <Link className="icon-btn" href="/dashboard?tab=watch" title="Watchlist">
+                          <Heart size={20} />
+                        </Link>
+                      </>
                     )}
                     <div className="avatar" id="avatarBtn" onClick={() => setAvatarOpen(!avatarOpen)} style={{ cursor: 'pointer', position: 'relative' }}>
                       {user.profile_pic ? (
@@ -206,6 +212,7 @@ export default function Navbar() {
                         <div className="avatar-menu open" id="avatarMenu" ref={avatarMenuRef} style={{ top: '100%', right: 0, position: 'absolute' }}>
                           {user.role !== 'admin' && <Link href="/dashboard">Dashboard</Link>}
                           <Link href="/profile">Profile</Link>
+                          {user.role !== 'admin' && <Link href="/messages">Messages</Link>}
                           {user.role !== 'admin' && <Link href="/bills">Bills</Link>}
                           {user.role === 'admin' && <Link href="/admin">Admin Panel</Link>}
                           <button onClick={handleLogout}>
