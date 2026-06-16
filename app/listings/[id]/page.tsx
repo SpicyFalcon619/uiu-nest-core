@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { MapPin, ShieldCheck, Bed, Activity } from 'lucide-react';
-import { fmt, propertyTypeLabel, statusLabel, placeholderPhoto } from '@/lib/utils';
+import { fmt, propertyTypeLabel, statusLabel, placeholderPhoto, avatarInitials } from '@/lib/utils';
 import ApplicationForm from './ApplicationForm';
 import WatchlistButton from '@/components/WatchlistButton';
 import ReviewsSection from '@/components/ReviewsSection';
@@ -8,6 +8,7 @@ import { notFound } from 'next/navigation';
 import ListingMap from '@/components/ListingMap';
 import CommentSection from '@/components/comments/CommentSection';
 import UserRating from '@/components/ratings/UserRating';
+import Link from 'next/link';
 
 export const metadata = {
   title: 'Listing Details - UIUNest',
@@ -27,7 +28,7 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
       costs:utility_costs(*),
       amenities:listing_amenities(*),
       reviews(*),
-      owner:profiles!listings_user_id_fkey(name, email, role, phone, profile_pic)
+      owner:profiles!listings_user_id_fkey(name, email, role, phone, profile_pic, profile_slug)
     `)
     .eq('listing_id', parseInt(id))
     .single();
@@ -218,13 +219,36 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
 
             <h4 style={{ marginBottom: '12px' }}>Listed By</h4>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
-              <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
-                {owner.name ? owner.name.substring(0,2).toUpperCase() : 'US'}
-              </div>
+              {/* Avatar — links to public profile if slug is available */}
+              {owner.profile_slug ? (
+                <Link href={`/profiles/${owner.profile_slug}`} style={{ flexShrink: 0 }}>
+                  {owner.profile_pic ? (
+                    <img src={owner.profile_pic} alt={owner.name} style={{ width: 44, height: 44, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--border)' }} />
+                  ) : (
+                    <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 16 }}>
+                      {avatarInitials(owner.name || 'U')}
+                    </div>
+                  )}
+                </Link>
+              ) : (
+                owner.profile_pic ? (
+                  <img src={owner.profile_pic} alt={owner.name} style={{ width: 44, height: 44, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--border)', flexShrink: 0 }} />
+                ) : (
+                  <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 16, flexShrink: 0 }}>
+                    {avatarInitials(owner.name || 'U')}
+                  </div>
+                )
+              )}
               <div>
-                <div style={{ fontWeight: 600 }}>{owner.name}</div>
+                {owner.profile_slug ? (
+                  <Link href={`/profiles/${owner.profile_slug}`} style={{ fontWeight: 600, color: 'inherit', textDecoration: 'none' }}>
+                    {owner.name}
+                  </Link>
+                ) : (
+                  <div style={{ fontWeight: 600 }}>{owner.name}</div>
+                )}
                 {listing.user_id && (
-                  <UserRating 
+                  <UserRating
                     targetUserId={listing.user_id}
                     initialRating={averageRating}
                     totalRatings={totalRatings}

@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { notFound } from 'next/navigation';
-import { fmt, conditionLabel, conditionColor, fmtDate, placeholderPhoto } from '@/lib/utils';
-import { Link as LinkIcon, User, MapPin, Calendar, CheckCircle2 } from 'lucide-react';
+import { fmt, conditionLabel, conditionColor, fmtDate, avatarInitials } from '@/lib/utils';
+import { Link as LinkIcon } from 'lucide-react';
 import Link from 'next/link';
 import ExchangeItemDetailClient from './ExchangeItemDetailClient';
 import CommentSection from '@/components/comments/CommentSection';
@@ -16,7 +16,7 @@ export default async function ExchangeItemDetail({ params }: { params: Promise<{
     .from('items')
     .select(`
       *,
-      seller:profiles!items_seller_id_fkey(name, email, phone, university_id, created_at),
+      seller:profiles!items_seller_id_fkey(name, email, phone, university_id, created_at, profile_pic, profile_slug),
       zone:zones(zone_name),
       listing:listings(title, listing_id)
     `)
@@ -119,15 +119,38 @@ export default async function ExchangeItemDetail({ params }: { params: Promise<{
           <div className="card" style={{ marginBottom: '24px' }}>
             <h3 style={{ marginTop: 0, marginBottom: '16px' }}>Seller Information</h3>
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-              <div style={{ width: '48px', height: '48px', borderRadius: '50%', backgroundColor: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '20px' }}>
-                {item.seller?.name?.charAt(0).toUpperCase()}
-              </div>
+              {/* Avatar — links to public profile when slug is available */}
+              {item.seller?.profile_slug ? (
+                <Link href={`/profiles/${item.seller.profile_slug}`} style={{ flexShrink: 0 }}>
+                  {item.seller?.profile_pic ? (
+                    <img src={item.seller.profile_pic} alt={item.seller.name} style={{ width: 52, height: 52, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--border)' }} />
+                  ) : (
+                    <div style={{ width: 52, height: 52, borderRadius: '50%', backgroundColor: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: 20 }}>
+                      {avatarInitials(item.seller?.name || 'U')}
+                    </div>
+                  )}
+                </Link>
+              ) : (
+                item.seller?.profile_pic ? (
+                  <img src={item.seller.profile_pic} alt={item.seller.name} style={{ width: 52, height: 52, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--border)', flexShrink: 0 }} />
+                ) : (
+                  <div style={{ width: 52, height: 52, borderRadius: '50%', backgroundColor: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: 20, flexShrink: 0 }}>
+                    {avatarInitials(item.seller?.name || 'U')}
+                  </div>
+                )
+              )}
               <div>
                 <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  {item.seller?.name || 'Anonymous User'}
+                  {item.seller?.profile_slug ? (
+                    <Link href={`/profiles/${item.seller.profile_slug}`} style={{ color: 'inherit', textDecoration: 'none' }}>
+                      {item.seller?.name || 'Anonymous User'}
+                    </Link>
+                  ) : (
+                    item.seller?.name || 'Anonymous User'
+                  )}
                 </div>
                 {item.seller_id && (
-                  <UserRating 
+                  <UserRating
                     targetUserId={item.seller_id}
                     initialRating={averageRating}
                     totalRatings={totalRatings}
@@ -135,7 +158,9 @@ export default async function ExchangeItemDetail({ params }: { params: Promise<{
                     currentUserId={user?.id}
                   />
                 )}
-                <div style={{ fontSize: '14px', color: 'var(--gray)', marginTop: '4px' }}>UIU Student · Member since {fmtDate(item.seller?.created_at || item.created_at)}</div>
+                <div style={{ fontSize: '14px', color: 'var(--gray)', marginTop: '4px' }}>
+                  UIU Student · Member since {fmtDate(item.seller?.created_at || item.created_at)}
+                </div>
               </div>
             </div>
             

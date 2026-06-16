@@ -13,8 +13,35 @@ export interface Profile {
   phone?: string;
   university_id?: string;
   profile_pic?: string;
+  bio?: string;
+  is_public?: boolean;
+  profile_slug?: string;
   status: UserStatus;
   created_at: string;
+}
+
+export interface Conversation {
+  id: string;
+  participant_a: string;
+  participant_b: string;
+  listing_id?: number | null;
+  item_id?: number | null;
+  created_at: string;
+  // Joined
+  other_user?: { name: string; profile_pic?: string; profile_slug?: string };
+  last_message?: Message;
+  unread_count?: number;
+}
+
+export interface Message {
+  id: string;
+  conversation_id: string;
+  sender_id: string;
+  body: string;
+  is_read: boolean;
+  created_at: string;
+  // Joined
+  sender?: { name: string; profile_pic?: string };
 }
 
 export type PropertyType = 'single_room' | 'shared_room' | 'full_mess' | 'sublet';

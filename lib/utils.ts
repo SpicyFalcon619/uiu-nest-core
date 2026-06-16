@@ -129,3 +129,18 @@ export function avatarInitials(name: string): string {
     .join('')
     .toUpperCase();
 }
+
+/**
+ * Generates a unique, URL-safe profile slug from a display name and UUID.
+ * Example: ("Ahmad Maruf", "a1b2c3d4-...") → "ahmad-maruf-a1b2"
+ * Mirrors the SQL generate_profile_slug() function so they stay in sync.
+ */
+export function generateProfileSlug(name: string, id: string): string {
+  const base = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+  const suffix = id.replace(/-/g, '').substring(0, 4);
+  return `${base}-${suffix}`;
+}
