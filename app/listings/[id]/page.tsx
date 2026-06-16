@@ -184,99 +184,105 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
 
         {/* Right Column: Cost Breakdown & Owner info */}
         <div>
-          <div className="card bento-emerald" style={{ padding: '32px', position: 'sticky', top: '100px' }}>
-            <h3 style={{ marginBottom: '24px' }}>Cost Breakdown</h3>
-            
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
-              <span>Base Rent</span>
-              <strong>{fmt(listing.costs?.base_rent || 0)}</strong>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
-              <span>Electricity ({listing.costs?.electricity_type})</span>
-              <span>{fmt(listing.costs?.electricity_amount || 0)}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
-              <span>Gas</span>
-              <span>{fmt(listing.costs?.gas_bill || 0)}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
-              <span>Water</span>
-              <span>{fmt(listing.costs?.water_bill || 0)}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
-              <span>Internet</span>
-              <span>{fmt(listing.costs?.internet_cost || 0)}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px', borderBottom: '1px solid var(--border)', paddingBottom: '12px' }}>
-              <span>Service Charge</span>
-              <span>{fmt((listing.costs?.maintenance_fee || 0) + (listing.costs?.caretaker_fee || 0))}</span>
+          <div style={{ position: 'sticky', top: '100px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+
+            {/* Green card — cost breakdown only */}
+            <div className="card bento-emerald" style={{ padding: '32px' }}>
+              <h3 style={{ marginBottom: '24px' }}>Cost Breakdown</h3>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
+                <span>Base Rent</span>
+                <strong>{fmt(listing.costs?.base_rent || 0)}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
+                <span>Electricity ({listing.costs?.electricity_type})</span>
+                <span>{fmt(listing.costs?.electricity_amount || 0)}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
+                <span>Gas</span>
+                <span>{fmt(listing.costs?.gas_bill || 0)}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
+                <span>Water</span>
+                <span>{fmt(listing.costs?.water_bill || 0)}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
+                <span>Internet</span>
+                <span>{fmt(listing.costs?.internet_cost || 0)}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px', borderBottom: '1px solid rgba(255,255,255,0.25)', paddingBottom: '12px' }}>
+                <span>Service Charge</span>
+                <span>{fmt((listing.costs?.maintenance_fee || 0) + (listing.costs?.caretaker_fee || 0))}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '20px', fontWeight: 'bold' }}>
+                <span>Total Monthly</span>
+                <span>{fmt(listing.costs?.total_monthly || 0)}</span>
+              </div>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '20px', fontWeight: 'bold', marginBottom: '32px' }}>
-              <span>Total Monthly</span>
-              <span>{fmt(listing.costs?.total_monthly || 0)}</span>
-            </div>
-
-            <h4 style={{ marginBottom: '12px' }}>Listed By</h4>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
-              {/* Avatar — links to public profile if slug is available */}
-              {owner.profile_slug ? (
-                <Link href={`/profiles/${owner.profile_slug}`} style={{ flexShrink: 0 }}>
-                  {owner.profile_pic ? (
-                    <img src={owner.profile_pic} alt={owner.name} style={{ width: 44, height: 44, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--border)' }} />
-                  ) : (
-                    <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 16 }}>
-                      {avatarInitials(owner.name || 'U')}
-                    </div>
-                  )}
-                </Link>
-              ) : (
-                owner.profile_pic ? (
-                  <img src={owner.profile_pic} alt={owner.name} style={{ width: 44, height: 44, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--border)', flexShrink: 0 }} />
-                ) : (
-                  <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 16, flexShrink: 0 }}>
-                    {avatarInitials(owner.name || 'U')}
-                  </div>
-                )
-              )}
-              <div>
+            {/* White card — owner info + apply */}
+            <div className="card" style={{ padding: '24px' }}>
+              <h4 style={{ marginBottom: '14px', marginTop: 0 }}>Listed By</h4>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
                 {owner.profile_slug ? (
-                  <Link href={`/profiles/${owner.profile_slug}`} style={{ fontWeight: 600, color: 'inherit', textDecoration: 'none' }}>
-                    {owner.name}
+                  <Link href={`/profiles/${owner.profile_slug}`} style={{ flexShrink: 0 }}>
+                    {owner.profile_pic ? (
+                      <img src={owner.profile_pic} alt={owner.name} style={{ width: 44, height: 44, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--border)' }} />
+                    ) : (
+                      <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 16 }}>
+                        {avatarInitials(owner.name || 'U')}
+                      </div>
+                    )}
                   </Link>
                 ) : (
-                  <div style={{ fontWeight: 600 }}>{owner.name}</div>
+                  owner.profile_pic ? (
+                    <img src={owner.profile_pic} alt={owner.name} style={{ width: 44, height: 44, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--border)', flexShrink: 0 }} />
+                  ) : (
+                    <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 16, flexShrink: 0 }}>
+                      {avatarInitials(owner.name || 'U')}
+                    </div>
+                  )
                 )}
-                {listing.user_id && (
-                  <UserRating
-                    targetUserId={listing.user_id}
-                    initialRating={averageRating}
-                    totalRatings={totalRatings}
-                    isLoggedIn={isLoggedIn && !isAdmin}
-                    currentUserId={user?.id}
-                  />
-                )}
-                <div style={{ fontSize: '12px', color: 'var(--ink-muted)', textTransform: 'capitalize', marginTop: '4px' }}>{owner.role}</div>
+                <div>
+                  {owner.profile_slug ? (
+                    <Link href={`/profiles/${owner.profile_slug}`} style={{ fontWeight: 600, color: 'inherit', textDecoration: 'none' }}>
+                      {owner.name}
+                    </Link>
+                  ) : (
+                    <div style={{ fontWeight: 600 }}>{owner.name}</div>
+                  )}
+                  {listing.user_id && (
+                    <UserRating
+                      targetUserId={listing.user_id}
+                      initialRating={averageRating}
+                      totalRatings={totalRatings}
+                      isLoggedIn={isLoggedIn && !isAdmin}
+                      currentUserId={user?.id}
+                    />
+                  )}
+                  <div style={{ fontSize: '12px', color: 'var(--ink-muted)', textTransform: 'capitalize', marginTop: '4px' }}>{owner.role}</div>
+                </div>
               </div>
+
+              {isLoggedIn ? (
+                user?.id === listing.user_id || isAdmin ? (
+                  <div style={{ padding: '14px', background: 'var(--surface-1)', borderRadius: '8px', textAlign: 'center', color: 'var(--ink-muted)', fontSize: '14px' }}>
+                    {isAdmin ? 'Admins cannot apply for listings.' : 'This is your own listing.'}
+                  </div>
+                ) : (
+                  <ApplicationForm
+                    listingId={parseInt(id)}
+                    ownerId={listing.user_id}
+                    listingTitle={listing.title}
+                  />
+                )
+              ) : (
+                <div style={{ padding: '14px', background: 'var(--surface-1)', borderRadius: '8px', textAlign: 'center', color: 'var(--ink-muted)', fontSize: '14px' }}>
+                  Please <Link href="/login" style={{ color: 'var(--primary)' }}>log in</Link> to apply.
+                </div>
+              )}
             </div>
 
-            {isLoggedIn ? (
-              user?.id === listing.user_id || isAdmin ? (
-                <div style={{ padding: '16px', background: 'var(--surface-1)', borderRadius: '8px', textAlign: 'center', color: 'var(--ink-muted)' }}>
-                  {isAdmin ? 'Admins cannot apply for listings.' : 'This is your own listing.'}
-                </div>
-              ) : (
-                <ApplicationForm 
-                  listingId={parseInt(id)} 
-                  ownerId={listing.user_id} 
-                  listingTitle={listing.title} 
-                />
-              )
-            ) : (
-              <div style={{ padding: '16px', background: 'var(--surface-1)', borderRadius: '8px', textAlign: 'center', color: 'var(--ink-muted)' }}>
-                Please log in to apply.
-              </div>
-            )}
           </div>
         </div>
 
