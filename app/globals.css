@@ -402,11 +402,15 @@ img { display: block; max-width: 100%; }
   background: var(--surface-2);
   color: var(--ink-mid);
 }
-.badge-gold  { background: #EEF9F3; color: var(--emerald); }
-.badge-navy  { background: var(--emerald-soft); color: var(--emerald); }
-.badge-green { background: #EEF9F3; color: var(--emerald); }
-.badge-red   { background: #FEF2F0; color: var(--danger); }
-.badge-blue  { background: #EFF6FF; color: var(--info); }
+.badge-gold    { background: #EEF9F3; color: var(--emerald); }
+.badge-navy    { background: var(--emerald-soft); color: var(--emerald); }
+.badge-green,
+.badge-success { background: #DCFCE7; color: #166534; }
+.badge-red,
+.badge-danger  { background: #FEF2F0; color: var(--danger); }
+.badge-blue    { background: #EFF6FF; color: var(--info); }
+.badge-amber   { background: #FFF8E6; color: #92620A; }
+.badge-gray    { background: #F3F4F6; color: #6B7280; }
 
 /* Mobile filter toggle button — hidden on desktop */
 .mobile-filter-btn { display: none; }

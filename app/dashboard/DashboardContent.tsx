@@ -19,6 +19,7 @@ import {
 } from '@/app/actions/applications';
 import { toast } from 'sonner';
 import CustomSelect from '@/components/CustomSelect';
+import MessageButton from '@/components/MessageButton';
 
 export default function DashboardContent({ data, user }: { data: DashboardData; user: Profile }) {
   const router = useRouter();
@@ -595,14 +596,24 @@ export default function DashboardContent({ data, user }: { data: DashboardData; 
                 ) : (
                   <div className="table-responsive">
                     <table className="table">
-                      <thead><tr><th>Listing</th><th>Owner</th><th>Status</th><th>Date</th></tr></thead>
+                      <thead><tr><th>Listing</th><th>Owner</th><th>Status</th><th>Date</th><th></th></tr></thead>
                       <tbody>
-                        {data.appsSent.map(a => (
+                        {data.appsSent.map((a: any) => (
                           <tr key={a.application_id}>
                             <td><Link href={`/listings/${a.listing_id}`} style={{ fontWeight: 600, color: 'inherit', textDecoration: 'none' }}>{a.listing_title}</Link></td>
                             <td>{a.owner_name || '—'}</td>
                             <td>{statusBadgeEl(a.status)}</td>
                             <td style={{ fontSize: '13px', color: 'var(--ink-muted)' }}>{a.created_at ? new Date(a.created_at).toLocaleDateString() : ''}</td>
+                            <td>
+                              {a.owner_id && (
+                                <MessageButton
+                                  otherUserId={a.owner_id}
+                                  listingId={a.listing_id}
+                                  label="Message"
+                                  className="btn btn-outline btn-sm"
+                                />
+                              )}
+                            </td>
                           </tr>
                         ))}
                       </tbody>

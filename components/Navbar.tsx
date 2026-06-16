@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client';
 import type { Profile } from '@/types';
 import { Home, Building2, ShoppingBag, Search, UserCircle, LayoutDashboard, User, Heart, Receipt, LogOut, Menu, MessageCircle } from 'lucide-react';
 import NotificationBell from './NotificationBell';
+import MessageIcon from './MessageIcon';
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -195,9 +196,7 @@ export default function Navbar() {
                     </div>
                     {user.role !== 'admin' && (
                       <>
-                        <Link className="icon-btn" href="/messages" title="Messages">
-                          <MessageCircle size={20} />
-                        </Link>
+                        <MessageIcon />
                         <Link className="icon-btn" href="/dashboard?tab=watch" title="Watchlist">
                           <Heart size={20} />
                         </Link>

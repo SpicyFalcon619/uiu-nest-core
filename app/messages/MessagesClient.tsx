@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { sendMessage, markConversationRead } from '@/app/actions/messages';
+import { sendMessage, markConversationRead, markConversationUnread } from '@/app/actions/messages';
 import { avatarInitials } from '@/lib/utils';
 import { Send, MessageCircle, Building2, ShoppingBag, CheckCheck, Search } from 'lucide-react';
 import { toast } from 'sonner';
@@ -63,6 +63,7 @@ export default function MessagesClient({ conversations: initialConvos, currentUs
   const [sending, setSending]             = useState(false);
   const [loadingMsgs, setLoadingMsgs]     = useState(false);
   const [search, setSearch]               = useState('');
+  const [ctxMenu, setCtxMenu]             = useState<{ convId: string; x: number; y: number } | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef  = useRef<HTMLInputElement>(null);
   const supabase  = createClient();
@@ -88,7 +89,7 @@ export default function MessagesClient({ conversations: initialConvos, currentUs
   // Scroll to bottom
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
-  // Realtime
+  // Realtime — INSERT new messages + UPDATE read status
   useEffect(() => {
     if (!activeConvoId) return;
     const channel = supabase
@@ -98,9 +99,21 @@ export default function MessagesClient({ conversations: initialConvos, currentUs
         setMessages(prev => prev.some(m => m.id === msg.id) ? prev : [...prev, msg]);
         if (msg.sender_id !== currentUserId) markConversationRead(activeConvoId);
       })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages', filter: `conversation_id=eq.${activeConvoId}` }, (payload) => {
+        const msg = payload.new as Message;
+        setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, is_read: msg.is_read } : m));
+      })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [activeConvoId]);
+
+  // Close context menu on outside click
+  useEffect(() => {
+    if (!ctxMenu) return;
+    const close = () => setCtxMenu(null);
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [ctxMenu]);
 
   const handleSend = useCallback(async () => {
     const text = input.trim();
@@ -116,12 +129,24 @@ export default function MessagesClient({ conversations: initialConvos, currentUs
       setMessages(prev => prev.filter(m => m.id !== optimistic.id));
       setInput(text);
     } else if (res.message) {
-      setMessages(prev => prev.map(m => m.id === optimistic.id ? res.message as Message : m));
+      const real = res.message as Message;
+      // If realtime already inserted the real message, just drop the optimistic copy
+      setMessages(prev =>
+        prev.some(m => m.id === real.id)
+          ? prev.filter(m => m.id !== optimistic.id)
+          : prev.map(m => m.id === optimistic.id ? real : m)
+      );
       setConvos(prev => prev.map(c => c.id === activeConvoId
         ? { ...c, last_message: { body: text, created_at: new Date().toISOString(), sender_id: currentUserId } }
         : c));
     }
   }, [input, activeConvoId, sending, currentUserId]);
+
+  const handleMarkUnread = useCallback(async (convId: string) => {
+    await markConversationUnread(convId);
+    setConvos(prev => prev.map(c => c.id === convId ? { ...c, unread_count: 1 } : c));
+    if (activeConvoId === convId) setActiveConvoId(null);
+  }, [activeConvoId]);
 
   const fmtTime = (iso: string) => {
     const d = new Date(iso), now = new Date();
@@ -175,6 +200,7 @@ export default function MessagesClient({ conversations: initialConvos, currentUs
             <button
               key={c.id}
               onClick={() => setActiveConvoId(c.id)}
+              onContextMenu={e => { e.preventDefault(); setCtxMenu({ convId: c.id, x: e.clientX, y: e.clientY }); }}
               style={{
                 width: '100%', textAlign: 'left', padding: '11px 14px',
                 display: 'flex', alignItems: 'center', gap: 10,
@@ -300,7 +326,6 @@ export default function MessagesClient({ conversations: initialConvos, currentUs
                                 maxWidth: '66%',
                                 padding: '9px 13px',
                                 borderRadius: `${tl} ${tr} ${br} ${bl}`,
-                                // Mine: solid emerald. Theirs: soft emerald tint
                                 background: isMine ? EMERALD : EMERALD_SOFT,
                                 color: isMine ? '#ffffff' : 'var(--ink)',
                                 fontSize: 14, lineHeight: 1.5, wordBreak: 'break-word',
@@ -309,9 +334,15 @@ export default function MessagesClient({ conversations: initialConvos, currentUs
                             >
                               {msg.body}
                               {!nextSame && (
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 3, marginTop: 3, opacity: isMine ? 0.75 : 0.55, fontSize: 10 }}>
-                                  {fmtTime(msg.created_at)}
-                                  {isMine && <CheckCheck size={10} />}
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 3, marginTop: 3, fontSize: 10 }}>
+                                  <span style={{ opacity: isMine ? 0.75 : 0.55 }}>{fmtTime(msg.created_at)}</span>
+                                  {isMine && (
+                                    <CheckCheck
+                                      size={10}
+                                      aria-label={msg.is_read ? 'Read' : 'Sent'}
+                                      style={{ color: msg.is_read ? '#ffffff' : 'rgba(255,255,255,0.45)' }}
+                                    />
+                                  )}
                                 </div>
                               )}
                             </div>
@@ -366,6 +397,21 @@ export default function MessagesClient({ conversations: initialConvos, currentUs
             <p style={{ margin: '0 0 4px', fontWeight: 600, color: 'var(--ink)', fontSize: 15 }}>Your Messages</p>
             <p style={{ margin: 0, fontSize: 13 }}>Select a conversation to start chatting.</p>
           </div>
+        </div>
+      )}
+
+      {/* Right-click context menu */}
+      {ctxMenu && (
+        <div
+          style={{ position: 'fixed', top: ctxMenu.y, left: ctxMenu.x, zIndex: 99999, background: '#fff', borderRadius: 8, boxShadow: '0 4px 20px rgba(0,0,0,0.15)', border: '1px solid var(--border)', padding: '4px 0', minWidth: 160 }}
+          onMouseDown={e => e.stopPropagation()}
+        >
+          <button
+            style={{ width: '100%', padding: '9px 14px', textAlign: 'left', background: 'none', border: 'none', fontSize: 13, cursor: 'pointer', color: 'var(--ink)' }}
+            onMouseDown={() => { handleMarkUnread(ctxMenu.convId); setCtxMenu(null); }}
+          >
+            Mark as unread
+          </button>
         </div>
       )}
     </div>
