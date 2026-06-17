@@ -78,7 +78,7 @@ export const updatePreferencesSchema = z.object({
 });
 
 export const createBillSchema = z.object({
-  listing_id: z.string().or(z.number()),
+  listing_id: z.string().or(z.number()).optional().nullable(),
   bill_month: z.string().min(1, 'Please provide a month (e.g. June 2024)'),
   electricity: z.number().min(0),
   gas: z.number().min(0),

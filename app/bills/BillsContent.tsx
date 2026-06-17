@@ -82,9 +82,7 @@ export default function BillsContent({
             {role === 'landlord' ? 'Track utility bills for all your properties.' : 'View and pay your monthly utility bills.'}
           </p>
         </div>
-        {role === 'landlord' && (
-          <button className="btn btn-primary" onClick={() => setShowCreateModal(true)}>+ Generate Bill</button>
-        )}
+        <button className="btn btn-primary" onClick={() => setShowCreateModal(true)}>+ Generate Bill</button>
       </div>
 
       {/* ── Summary cards ── */}
@@ -108,12 +106,8 @@ export default function BillsContent({
         <div className="card" style={{ textAlign: 'center', padding: '48px 24px' }}>
           <FileText size={48} color="var(--ink-muted)" style={{ marginBottom: 16, opacity: 0.4 }} />
           <h3 style={{ color: 'var(--ink-mid)', marginBottom: 8 }}>No bills yet</h3>
-          {role === 'landlord' && (
-            <p style={{ color: 'var(--ink-muted)', marginBottom: 20, fontSize: 14 }}>Generate a bill for your properties to get started.</p>
-          )}
-          {role === 'landlord' && (
-            <button className="btn btn-primary" onClick={() => setShowCreateModal(true)}>+ Generate First Bill</button>
-          )}
+          <p style={{ color: 'var(--ink-muted)', marginBottom: 20, fontSize: 14 }}>No bills yet. Generate your first monthly bill to get started.</p>
+          <button className="btn btn-primary" onClick={() => setShowCreateModal(true)}>+ Generate First Bill</button>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -230,6 +224,7 @@ export default function BillsContent({
       {showCreateModal && (
         <CreateBillModal
           myListings={myListings}
+          userId={userId}
           onClose={() => setShowCreateModal(false)}
           onSuccess={(newBill) => {
             setBills([newBill, ...bills]);
