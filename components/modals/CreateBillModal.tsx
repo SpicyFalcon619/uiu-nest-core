@@ -111,13 +111,11 @@ export default function CreateBillModal({
   };
 
   return (
-    <div className="modal-backdrop">
-      <div className="modal-content" style={{ maxWidth: '500px' }}>
-        <div className="modal-header">
-          <h3>Generate New Monthly Bill</h3>
-          <button className="btn-close" onClick={onClose}><X size={20} /></button>
-        </div>
-        
+    <div className="modal-bg open" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="modal" style={{ maxWidth: 520, padding: 36, position: 'relative' }}>
+        <button className="modal-close" onClick={onClose} type="button"><X size={18} /></button>
+        <h3 style={{ marginBottom: 20 }}>Generate New Monthly Bill</h3>
+
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label>Select Property</label>
@@ -125,7 +123,7 @@ export default function CreateBillModal({
               name="listing_id"
               value={form.listing_id}
               onChange={val => setForm({...form, listing_id: val})}
-              options={myListings.length === 0 
+              options={myListings.length === 0
                 ? [{ value: '', label: 'No active listings found' }]
                 : myListings.map(l => ({ value: String(l.listing_id || l.id), label: l.title }))
               }
@@ -134,12 +132,12 @@ export default function CreateBillModal({
 
           <div className="form-group">
             <label>Bill Month</label>
-            <input 
-              type="text" 
-              placeholder="e.g. June 2024" 
-              value={form.bill_month} 
-              onChange={e => setForm({...form, bill_month: e.target.value})} 
-              required 
+            <input
+              type="text"
+              placeholder="e.g. June 2024"
+              value={form.bill_month}
+              onChange={e => setForm({...form, bill_month: e.target.value})}
+              required
             />
           </div>
 
@@ -170,12 +168,12 @@ export default function CreateBillModal({
             <input type="number" min="0" value={form.other} onChange={e => setForm({...form, other: e.target.value as any})} />
           </div>
 
-          <div style={{ background: '#f1f5f9', padding: '16px', borderRadius: '8px', marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontWeight: 600, color: 'var(--navy)' }}>Total Calculated Bill:</span>
-            <span style={{ fontSize: '20px', fontWeight: 700, color: 'var(--primary)' }}>৳ {total}</span>
+          <div style={{ background: 'var(--emerald-soft)', padding: '14px 18px', borderRadius: 10, borderLeft: '3px solid var(--emerald)', marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontWeight: 600, color: 'var(--ink)' }}>Total Calculated Bill:</span>
+            <span style={{ fontSize: 20, fontWeight: 800, color: 'var(--emerald)' }}>৳ {total.toLocaleString()}</span>
           </div>
 
-          <div className="modal-actions">
+          <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
             <button type="button" className="btn btn-outline" onClick={onClose}>Cancel</button>
             <button type="submit" className="btn btn-primary" disabled={loading || myListings.length === 0}>
               {loading ? 'Generating...' : 'Generate Bill'}
