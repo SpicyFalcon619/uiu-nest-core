@@ -131,6 +131,7 @@ export default function Navbar() {
         height: 64, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '0 20px', borderBottom: '1px solid var(--border)',
         background: '#fff', flexShrink: 0,
+        position: 'relative', zIndex: 2000,
       }}>
         <Link href="/dashboard" style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--ink-muted)', textDecoration: 'none', fontWeight: 500, fontSize: 14 }}>
           <ArrowLeft size={18} />
