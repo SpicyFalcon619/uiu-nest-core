@@ -1,101 +1,103 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import BillsContent from './BillsContent';
-import type { MonthlyBill, BillPayment } from '@/types';
 
 export const metadata = {
-  title: 'Bills & Payments - UIUNest',
+  title: 'Bills Manager - UIUNest',
   description: 'Manage your flat bills and payments.',
 };
 
 export default async function BillsPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
 
-  if (!user) {
-    redirect('/login');
-  }
-
-  // Fetch profile to know role
   const { data: profile } = await supabase
     .from('profiles')
     .select('role, id, name')
     .eq('id', user.id)
     .single();
+  if (!profile) redirect('/login');
 
-  if (!profile) {
-    redirect('/login');
-  }
-
-  let billsData: any[] = [];
-
-  if (profile.role === 'landlord') {
-    // Landlord: Fetch bills for all their listings
-    const { data: landlordBills } = await supabase
-      .from('monthly_bills')
-      .select(`
-        *,
-        listing:listings!inner(user_id, title),
-        payments:bill_payments(
-          *,
-          resident:profiles!bill_payments_resident_user_id_fkey(name)
-        )
-      `)
-      .eq('listings.user_id', user.id)
-      .order('created_at', { ascending: false });
-      
-    billsData = landlordBills || [];
-  } else {
-    // Student: Fetch bills where they have a payment record
-    const { data: studentPayments } = await supabase
-      .from('bill_payments')
-      .select(`
-        *,
-        bill:monthly_bills(
-          *,
-          listing:listings(title)
-        )
-      `)
-      .eq('resident_user_id', user.id)
-      .order('created_at', { ascending: false });
-      
-    if (studentPayments) {
-      // Group by bill
-      const billMap = new Map();
-      studentPayments.forEach((p: any) => {
-        if (p.bill) {
-          const billKey = p.bill.bill_id ?? p.bill.id;
-          if (!billMap.has(billKey)) {
-            billMap.set(billKey, {
-              ...p.bill,
-              payments: [{ ...p, resident: { name: profile.name } }]
-            });
-          }
-        }
-      });
-      billsData = Array.from(billMap.values());
-    }
-  }
-
-  // Fetch listings for bill creation (landlords get their own, others get an empty list)
+  // Fetch all listings this user owns or is accepted into
   let myListings: any[] = [];
   if (profile.role === 'landlord') {
-    const { data: listings } = await supabase
+    const { data } = await supabase
       .from('listings')
-      .select('listing_id, id, title')
+      .select('listing_id, title, address, zone:zones(zone_name), current_occupancy, costs:listing_costs(base_rent)')
       .eq('user_id', user.id)
-      .in('status', ['occupied', 'soon_vacant']);
-    myListings = listings || [];
+      .order('created_at', { ascending: false });
+    myListings = (data || []).map((l: any) => ({
+      ...l,
+      base_rent: l.costs?.[0]?.base_rent ?? 0,
+      zone_name: l.zone?.zone_name ?? '',
+    }));
+  } else {
+    // Students: listings they are accepted into
+    const { data: apps } = await supabase
+      .from('applications')
+      .select('listing:listings(listing_id, title, address, zone:zones(zone_name), current_occupancy, costs:listing_costs(base_rent))')
+      .eq('applicant_id', user.id)
+      .eq('status', 'accepted');
+    myListings = (apps || [])
+      .map((a: any) => a.listing)
+      .filter(Boolean)
+      .map((l: any) => ({
+        ...l,
+        base_rent: l.costs?.[0]?.base_rent ?? 0,
+        zone_name: l.zone?.zone_name ?? '',
+      }));
+  }
+
+  // Fetch all bills visible to this user
+  let billsData: any[] = [];
+  if (profile.role === 'landlord') {
+    const listingIds = myListings.map((l: any) => l.listing_id).filter(Boolean);
+    if (listingIds.length > 0) {
+      const { data } = await supabase
+        .from('monthly_bills')
+        .select(`*, listing:listings(title, address), payments:bill_payments(*, resident:profiles!bill_payments_resident_user_id_fkey(id, name))`)
+        .in('listing_id', listingIds)
+        .order('created_at', { ascending: false });
+      billsData = data || [];
+    }
+  } else {
+    // Self-created bills (no listing_id) + bills from their listings
+    const listingIds = myListings.map((l: any) => l.listing_id).filter(Boolean);
+
+    const { data: paymentBills } = await supabase
+      .from('bill_payments')
+      .select(`bill:monthly_bills(*, listing:listings(title, address), payments:bill_payments(*, resident:profiles!bill_payments_resident_user_id_fkey(id, name)))`)
+      .eq('resident_user_id', user.id)
+      .order('created_at', { ascending: false });
+
+    const seen = new Set<number>();
+    (paymentBills || []).forEach((p: any) => {
+      if (p.bill) {
+        const id = p.bill.bill_id ?? p.bill.id;
+        if (!seen.has(id)) { seen.add(id); billsData.push(p.bill); }
+      }
+    });
+
+    if (listingIds.length > 0) {
+      const { data: listingBills } = await supabase
+        .from('monthly_bills')
+        .select(`*, listing:listings(title, address), payments:bill_payments(*, resident:profiles!bill_payments_resident_user_id_fkey(id, name))`)
+        .in('listing_id', listingIds)
+        .order('created_at', { ascending: false });
+      (listingBills || []).forEach((b: any) => {
+        const id = b.bill_id ?? b.id;
+        if (!seen.has(id)) { seen.add(id); billsData.push(b); }
+      });
+    }
   }
 
   return (
     <div className="container" style={{ padding: '40px 0' }}>
-      <h1 className="page-title">Bills Manager</h1>
-      <BillsContent 
-        initialBills={billsData} 
-        role={profile.role} 
-        userId={user.id}
+      <BillsContent
+        initialBills={billsData}
         myListings={myListings}
+        currentUser={{ id: user.id, name: profile.name, role: profile.role }}
       />
     </div>
   );
