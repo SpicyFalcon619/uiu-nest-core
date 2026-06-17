@@ -7,17 +7,21 @@ import { toast } from 'sonner';
 import { createBillSchema } from '@/lib/schemas';
 import CustomSelect from '@/components/CustomSelect';
 
-export default function CreateBillModal({ 
-  myListings, 
-  onClose, 
-  onSuccess 
-}: { 
+export default function CreateBillModal({
+  myListings,
+  userId,
+  onClose,
+  onSuccess
+}: {
   myListings: any[];
+  userId: string;
   onClose: () => void;
   onSuccess: (newBill: any) => void;
 }) {
+  const hasListings = myListings.length > 0;
+
   const [form, setForm] = useState({
-    listing_id: myListings.length > 0 ? myListings[0].listing_id || myListings[0].id : '',
+    listing_id: hasListings ? String(myListings[0].listing_id || myListings[0].id) : '',
     bill_month: '',
     electricity: 0,
     gas: 0,
@@ -25,7 +29,7 @@ export default function CreateBillModal({
     internet: 0,
     other: 0,
   });
-  
+
   const [loading, setLoading] = useState(false);
 
   const total = Number(form.electricity) + Number(form.gas) + Number(form.water) + Number(form.internet) + Number(form.other);
@@ -35,21 +39,26 @@ export default function CreateBillModal({
     setLoading(true);
 
     const supabase = createClient();
-    
-    // First, find how many residents are in this listing to calculate per_person
-    const { data: residents } = await supabase
-      .from('applications')
-      .select('applicant_id, applicant:profiles!applications_applicant_id_fkey(name)')
-      .eq('listing_id', form.listing_id)
-      .eq('status', 'accepted');
-      
-    // Including the owner in some cases? Or maybe just applicants
-    const residentCount = (residents?.length || 0);
-    const perPerson = residentCount > 0 ? total / residentCount : total;
+
+    let residents: any[] = [];
+
+    if (hasListings && form.listing_id) {
+      // Landlord flow: pull accepted residents for the chosen listing
+      const { data } = await supabase
+        .from('applications')
+        .select('applicant_id, applicant:profiles!applications_applicant_id_fkey(name)')
+        .eq('listing_id', form.listing_id)
+        .eq('status', 'accepted');
+      residents = data || [];
+    }
+
+    // If no residents found (no listing, or empty listing), bill is for the creator alone
+    const residentCount = residents.length > 0 ? residents.length : 1;
+    const perPerson = Math.round(total / residentCount);
 
     const validation = createBillSchema.safeParse({
       ...form,
-      listing_id: Number(form.listing_id),
+      listing_id: form.listing_id ? Number(form.listing_id) : null,
       electricity: Number(form.electricity),
       gas: Number(form.gas),
       water: Number(form.water),
@@ -69,7 +78,7 @@ export default function CreateBillModal({
     const { data: newBill, error: billError } = await supabase
       .from('monthly_bills')
       .insert({
-        listing_id: validation.data.listing_id,
+        ...(validation.data.listing_id ? { listing_id: validation.data.listing_id } : {}),
         bill_month: validation.data.bill_month,
         electricity: validation.data.electricity,
         gas: validation.data.gas,
@@ -88,25 +97,18 @@ export default function CreateBillModal({
       return;
     }
 
-    // Insert payment records for each resident
-    let payments: any[] = [];
-    if (residents && residents.length > 0) {
-      const paymentInserts = residents.map(r => ({
-        bill_id: newBill.bill_id,
-        resident_user_id: r.applicant_id,
-        status: 'unpaid'
-      }));
-      
-      const { data: newPayments } = await supabase
-        .from('bill_payments')
-        .insert(paymentInserts)
-        .select(`*, resident:profiles!bill_payments_resident_user_id_fkey(name)`);
-        
-      if (newPayments) payments = newPayments;
-    }
+    // Insert payment records
+    const paymentInserts = residents.length > 0
+      ? residents.map(r => ({ bill_id: newBill.bill_id, resident_user_id: r.applicant_id, status: 'unpaid' }))
+      : [{ bill_id: newBill.bill_id, resident_user_id: userId, status: 'unpaid' }];
+
+    const { data: newPayments } = await supabase
+      .from('bill_payments')
+      .insert(paymentInserts)
+      .select(`*, resident:profiles!bill_payments_resident_user_id_fkey(name)`);
 
     toast.success('Bill generated successfully!');
-    onSuccess({ ...newBill, payments });
+    onSuccess({ ...newBill, payments: newPayments || [] });
     onClose();
   };
 
@@ -117,18 +119,17 @@ export default function CreateBillModal({
         <h3 style={{ marginBottom: 20 }}>Generate New Monthly Bill</h3>
 
         <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label>Select Property</label>
-            <CustomSelect
-              name="listing_id"
-              value={form.listing_id}
-              onChange={val => setForm({...form, listing_id: val})}
-              options={myListings.length === 0
-                ? [{ value: '', label: 'No active listings found' }]
-                : myListings.map(l => ({ value: String(l.listing_id || l.id), label: l.title }))
-              }
-            />
-          </div>
+          {hasListings && (
+            <div className="form-group">
+              <label>Select Property</label>
+              <CustomSelect
+                name="listing_id"
+                value={form.listing_id}
+                onChange={val => setForm({...form, listing_id: val})}
+                options={myListings.map(l => ({ value: String(l.listing_id || l.id), label: l.title }))}
+              />
+            </div>
+          )}
 
           <div className="form-group">
             <label>Bill Month</label>
@@ -175,7 +176,7 @@ export default function CreateBillModal({
 
           <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
             <button type="button" className="btn btn-outline" onClick={onClose}>Cancel</button>
-            <button type="submit" className="btn btn-primary" disabled={loading || myListings.length === 0}>
+            <button type="submit" className="btn btn-primary" disabled={loading}>
               {loading ? 'Generating...' : 'Generate Bill'}
             </button>
           </div>

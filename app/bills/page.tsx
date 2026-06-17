@@ -64,8 +64,9 @@ export default async function BillsPage() {
       const billMap = new Map();
       studentPayments.forEach((p: any) => {
         if (p.bill) {
-          if (!billMap.has(p.bill.id)) {
-            billMap.set(p.bill.id, {
+          const billKey = p.bill.bill_id ?? p.bill.id;
+          if (!billMap.has(billKey)) {
+            billMap.set(billKey, {
               ...p.bill,
               payments: [{ ...p, resident: { name: profile.name } }]
             });
@@ -76,7 +77,7 @@ export default async function BillsPage() {
     }
   }
 
-  // Also fetch landlord's listings to create new bills
+  // Fetch listings for bill creation (landlords get their own, others get an empty list)
   let myListings: any[] = [];
   if (profile.role === 'landlord') {
     const { data: listings } = await supabase
